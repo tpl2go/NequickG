@@ -120,5 +120,41 @@ def Task5():
     stec = NEQ_global.sTEC(100,40,0,1000,40,0)
     print stec
 
-Task2()
-Task5()
+def Task6():
+    #test sTEC
+    TX = NEQTime(10,12)
+    BX = GalileoBroadcast(80,0,0)
+    NEQ_global = NequickG_global(TX, BX)
+    stec = NEQ_global.sTEC2(100,40,0,1000,40,0)
+    print stec
+
+def Task7():
+    # visualise the sTEC in the sky above toulouse
+
+    TX = NEQTime(10,12)
+    BX = GalileoBroadcast(80,0,0)
+    NEQ_global = NequickG_global(TX, BX)
+
+    # grid
+    lat0 = 40
+    lon0 = 0
+    n = 5
+    lats = np.linspace(-10,10, n) + lat0
+    lons = np.linspace(-10, 10, n) + lon0
+
+    stec = np.empty([n,n])
+
+    for i in range(n):
+        for j in range(n):
+            print "j, i : " + str ((j, i))
+            stec[j,i] = NEQ_global.sTEC(0, lat0, lon0, 20000, lats[i],lons[j])
+
+    plt.imshow(stec)
+    plt.show()
+
+
+# Task2()
+# Task5()
+# Task6()
+
+Task7()

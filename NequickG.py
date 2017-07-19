@@ -49,9 +49,60 @@ class NequickG_global:
             Para = NequickG_parameters(position, self.broadcast, self.time)
             return NequickG(Para)
 
-    def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2):
+    def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2, tolerance=None):
+        "this method avoids the 0.1km threshold in ray perigee radius"
+        if tolerance == None:
+            if h1 < 1000:
+                tolerance = 0.001
+            else:
+                tolerance = 0.01
         roughpaper = SlantRayAnalysis2(h1, lat1, lon1, h2, lat2, lon2)
-        rr, latlat, lonlon = roughpaper.intermediatepoints()
+
+        n = 8
+
+        xx, yy, zz, delta = roughpaper.sampleX(n)
+        rr, latlat, lonlon = roughpaper.cartesian2coord(xx, yy, zz)
+        hh = roughpaper.radius2height(rr)
+
+        GN1 = self.__integrate2(hh, latlat, lonlon, delta)
+
+        n *= 2
+
+        xx, yy, zz, delta = roughpaper.sampleX(n)
+        rr, latlat, lonlon = roughpaper.cartesian2coord(xx, yy, zz)
+        hh = roughpaper.radius2height(rr)
+
+        GN2 = self.__integrate2(hh, latlat, lonlon, delta)  # there is repeated work here. can be optimized
+
+        count = 1
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
+
+            GN1 = GN2
+
+            n *= 2
+
+            xx, yy, zz, delta = roughpaper.sampleX(n)
+            rr, latlat, lonlon = roughpaper.cartesian2coord(xx, yy, zz)
+            hh = roughpaper.radius2height(rr)
+
+            GN2 = self.__integrate2(hh, latlat, lonlon, delta)
+
+            count += 1
+
+        return (GN2 + (GN2 - GN1) / 15.0)
+
+    def __integrate2(self, hh, lats, lons, delta):
+        NEQs = []
+        electrondensity = []
+
+        for i in range(len(lats)):
+            pos = Position(lats[i], lons[i])
+            NEQ = self.get_Nequick_local(pos)
+            NEQs.append(NEQ)
+            electrondensity.append(NEQ.electrondensity(hh[i]))
+        GN = delta / 2.0 * np.sum(electrondensity)
+
+        return GN
 
     def sTEC(self, h1, lat1, lon1, h2, lat2, lon2, tolerance=None):
         """
@@ -74,33 +125,11 @@ class NequickG_global:
 
         roughpaper = SlantRayAnalysis(h1, lat1, lon1, h2, lat2, lon2)
 
-        # if roughpaper.rp < 0.1:
-        #     neq = self.get_Nequick_local(Position(lat1, lon1))
-        #     return neq.vTEC(h1, h2)
+        if roughpaper.rp < 0.1:
+            neq = self.get_Nequick_local(Position(lat1, lon1))
+            return neq.vTEC(h1, h2)
 
         s1, s2 = roughpaper.ray_endpoints()
-
-        # n = 32
-        # delta = (s2 - s1) / n
-        # ss = np.linspace(s1, s2, n)
-        # positions = []
-        # NEQs = []
-        # electrondensity = []
-        # heights, lats, lons = roughpaper.ray_coords(ss)
-        # print roughpaper.rp
-        # print lats
-        # print lons
-        # print heights
-        # for i in range(len(lats)):
-        #     pos = Position(lats[i], lons[i])
-        #     positions.append(pos)
-        #     NEQ = self.get_Nequick_local(pos)
-        #     NEQs.append(NEQ)
-        #     electrondensity.append(NEQ.electrondensity(heights[i]))
-        #
-        #
-        # sumN1 = delta * np.sum(electrondensity)
-
 
         n = 8
 
@@ -220,6 +249,7 @@ class NequickG:
     def __single_quad(self, h1, h2, n):
 
         delta = float(h2 - h1) / n
+
         g = .5773502691896 * delta  # delta / sqrt(3)
         y = h1 + (delta - g) / 2.0
 
@@ -434,10 +464,10 @@ class SlantRayAnalysis2:
         self.lon1 = lon1
         self.lon2 = lon2
 
-        self.x1, self.y1, self.z1 = self.__coord2cartesian(6371.2 + h1, lat1, lon1)
-        self.x2, self.y2, self.z2 = self.__coord2cartesian(6371.2 + h2, lat2, lon2)
+        self.x1, self.y1, self.z1 = self.coord2cartesian(6371.2 + h1, lat1, lon1)
+        self.x2, self.y2, self.z2 = self.coord2cartesian(6371.2 + h2, lat2, lon2)
 
-    def __coord2cartesian(self, r, lat, lon):
+    def coord2cartesian(self, r, lat, lon):
         """
 
         :param r: [km]
@@ -452,7 +482,7 @@ class SlantRayAnalysis2:
 
         return x, y, z
 
-    def __cartesian2coord(self, x, y, z):
+    def cartesian2coord(self, x, y, z):
         """
 
         :param x: [km]
@@ -469,10 +499,10 @@ class SlantRayAnalysis2:
 
         return r, lat, lon
 
-    def __radius2height(self, r):
+    def radius2height(self, r):
         return r - 6371.2
 
-    def __height2radius(self, h):
+    def height2radius(self, h):
         return h + 6371.2
 
     def intermediatepoints(self, n):
@@ -480,8 +510,47 @@ class SlantRayAnalysis2:
         yy = np.linspace(self.y1, self.y2, n)
         zz = np.linspace(self.z1, self.z2, n)
 
-        rr, latlat, lonlon = self.__cartesian2coord(xx, yy, zz)
+        rr, latlat, lonlon = self.cartesian2coord(xx, yy, zz)
+
         return rr, latlat, lonlon
+
+    def sampleX(self, n):
+        """
+        Decides which 2n points to sample for integration between x1 and x2
+        :param n:
+        :return:
+        """
+        deltax = float(self.x2 - self.x1) / n
+        x_g = .5773502691896 * deltax  # delta / sqrt(3)
+        x_y = self.x1 + (deltax - x_g) / 2.0
+
+        xx = np.empty(2 * n)
+        I = np.arange(n)
+        xx[0::2] = x_y + I * deltax
+        xx[1::2] = x_y + I * deltax + x_g
+
+        deltay = float(self.y2 - self.y1) / n
+        y_g = .5773502691896 * deltay  # delta / sqrt(3)
+        y_y = self.y1 + (deltax - y_g) / 2.0
+
+        yy = np.empty(2 * n)
+        I = np.arange(n)
+        yy[0::2] = y_y + I * deltay
+        yy[1::2] = y_y + I * deltay + y_g
+
+        deltaz = float(self.z2 - self.z1) / n
+        z_g = .5773502691896 * deltaz  # delta / sqrt(3)
+        z_y = self.z1 + (deltaz - y_g) / 2.0
+
+        zz = np.empty(2 * n)
+        I = np.arange(n)
+        zz[0::2] = z_y + I * deltaz
+        zz[1::2] = z_y + I * deltaz + z_g
+
+        delta = np.sqrt(deltax**2 + deltay**2 + deltaz**2)
+
+
+        return xx, yy, zz, delta
 
 
 class NequickG_parameters:
