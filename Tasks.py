@@ -22,13 +22,13 @@ def Task1():
 
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX,BX)
-            NEQ = NEQ_global.get_Nequick(RX)
+            NEQ = NEQ_global.get_Nequick_local(RX)
 
             hmin = 100
             hmax = 1000
             h = np.arange(hmin, hmax)
 
-            N = NEQ.vertical_electrondensity(h)
+            N = NEQ.electrondensity(h)
             #plt.figure()
             plt.plot(h, N)
             plt.xlabel('Height(km)')
@@ -39,18 +39,18 @@ def Task1():
             plt.grid()
             #plt.savefig(label)
     plt.savefig("all")
-# Task1()
+
 
 def Task2():
     #test vTEC
     TX = NEQTime(10,12)
-    RX = Position(30,0)
+    RX = Position(40,0)
     BX = GalileoBroadcast(80,0,0)
     NEQ_global = NequickG_global(TX, BX)
-    NEQ = NEQ_global.get_Nequick(RX)
+    NEQ = NEQ_global.get_Nequick_local(RX)
     print NEQ.vTEC(100,1000)
 
-Task2()
+
 
 def Task3():
     # vTEC map
@@ -63,14 +63,13 @@ def Task3():
             TX = NEQTime(10, 12)
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX, BX)
-            NEQ = NEQ_global.get_Nequick(RX)
+            NEQ = NEQ_global.get_Nequick_local(RX)
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
     plt.figure()
     plt.contour(vTEC)
     plt.show()
 
-# Task3()
 
 def Task4():
     # set up orthographic map projection with
@@ -100,17 +99,26 @@ def Task4():
             TX = NEQTime(10, 12)
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX, BX)
-            NEQ = NEQ_global.get_Nequick(RX)
+            NEQ = NEQ_global.get_Nequick_local(RX)
 
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
     x, y = np.meshgrid(lons, lats)
     xx, yy = mapp(x, y)
     cs = mapp.contour(xx, yy, np.array(vTEC), linewidths=1.5)
-    plt.title('contour lines over filled continent background')
+    plt.title('vertical Total Electron Count over Toulouse')
     plt.show()
 
-# Task4()
 
 
 
+def Task5():
+    #test sTEC
+    TX = NEQTime(10,12)
+    BX = GalileoBroadcast(80,0,0)
+    NEQ_global = NequickG_global(TX, BX)
+    stec = NEQ_global.sTEC(100,40,0,1000,40,0)
+    print stec
+
+Task2()
+Task5()

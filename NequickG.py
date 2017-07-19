@@ -3,15 +3,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from aux import *
 
+
 class NEQTime:
     def __init__(self, mth, universal_time):
         self.mth = mth  # {01, 02, 03 ... 11, 12}
         self.universal_time = universal_time  # hours and decimals
 
+
 class Position:
     def __init__(self, latitude, longitude):
         self.latitude = latitude  # degrees
         self.longitude = longitude  # degrees
+
 
 class GalileoBroadcast:
     def __init__(self, ai0, ai1, ai2):
@@ -30,10 +33,125 @@ class NequickG_global:
         self.time = time
         self.broadcast = broadcast
 
-    def get_Nequick(self, position):
-        Para = NequickG_parameters(position, self.broadcast, self.time)
-        return NequickG(Para)
+    def get_Nequick_local(self, position):
+        """
+        :param position: list of nequick position objects
+        :return: list of nequick models at positions
+        """
+        if type(position) == list:
+            models = []
+            for pos in position:
+                Para = NequickG_parameters(pos, self.broadcast, self.time)
+                models.append(NequickG(Para))
 
+            return models
+        else:
+            Para = NequickG_parameters(position, self.broadcast, self.time)
+            return NequickG(Para)
+
+    def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2):
+        roughpaper = SlantRayAnalysis2(h1, lat1, lon1, h2, lat2, lon2)
+        rr, latlat, lonlon = roughpaper.intermediatepoints()
+
+    def sTEC(self, h1, lat1, lon1, h2, lat2, lon2, tolerance=None):
+        """
+
+        :param h1:
+        :param lat1:
+        :param lon1:
+        :param h2:
+        :param lat2:
+        :param lon2:
+        :param tolerance:
+        :return:
+        """
+
+        if tolerance == None:
+            if h1 < 1000:
+                tolerance = 0.001
+            else:
+                tolerance = 0.01
+
+        roughpaper = SlantRayAnalysis(h1, lat1, lon1, h2, lat2, lon2)
+
+        # if roughpaper.rp < 0.1:
+        #     neq = self.get_Nequick_local(Position(lat1, lon1))
+        #     return neq.vTEC(h1, h2)
+
+        s1, s2 = roughpaper.ray_endpoints()
+
+        # n = 32
+        # delta = (s2 - s1) / n
+        # ss = np.linspace(s1, s2, n)
+        # positions = []
+        # NEQs = []
+        # electrondensity = []
+        # heights, lats, lons = roughpaper.ray_coords(ss)
+        # print roughpaper.rp
+        # print lats
+        # print lons
+        # print heights
+        # for i in range(len(lats)):
+        #     pos = Position(lats[i], lons[i])
+        #     positions.append(pos)
+        #     NEQ = self.get_Nequick_local(pos)
+        #     NEQs.append(NEQ)
+        #     electrondensity.append(NEQ.electrondensity(heights[i]))
+        #
+        #
+        # sumN1 = delta * np.sum(electrondensity)
+
+
+        n = 8
+
+        GN1 = self.__integrate(s1, s2, n, roughpaper)
+        n *= 2
+        GN2 = self.__integrate(s1, s2, n, roughpaper)  # there is repeated work here. can be optimized
+
+        count = 1
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
+            GN1 = GN2
+            n *= 2
+            GN2 = self.__integrate(s1, s2, n, roughpaper)
+            count += 1
+
+        return (GN2 + (GN2 - GN1) / 15.0)
+
+
+    def __sampleX(self, x1, x2, n):
+        """
+        Decides which 2n points to sample for integration between x1 and x2
+        :param x1:
+        :param x2:
+        :param n:
+        :return:
+        """
+        delta = float(x2 - x1) / n
+        g = .5773502691896 * delta  # delta / sqrt(3)
+        y = x1 + (delta - g) / 2.0
+
+        ss = np.empty(2 * n)
+        I = np.arange(n)
+        ss[0::2] = y + I * delta
+        ss[1::2] = y + I * delta + g
+
+        return ss, delta
+
+    def __integrate(self, s1, s2, n, roughpaper):
+        ss, delta = self.__sampleX(s1, s2, n)
+
+        positions = []
+        NEQs = []
+        electrondensity = []
+        heights, lats, lons = roughpaper.ray_coords(ss)
+        for i in range(len(lats)):
+            pos = Position(lats[i], lons[i])
+            positions.append(pos)
+            NEQ = self.get_Nequick_local(pos)
+            NEQs.append(NEQ)
+            electrondensity.append(NEQ.electrondensity(heights[i]))
+        GN = delta / 2.0 * np.sum(electrondensity)
+        return GN
 
 
 class NequickG:
@@ -44,10 +162,15 @@ class NequickG:
         self.topside = NequickG_topside(*topside_para)
         self.bottomside = NequickG_bottomside(*bottomside_para)
 
-    def vertical_electrondensity(self, h):
-        assert( type(h) == np.ndarray )
+    def electrondensity(self, h):
+        """
 
-        mask1 = h<self.Para.hmF2
+        :param h: [km]
+        :return: electron density [m^-3]
+        """
+        h = np.array(h)
+
+        mask1 = h < self.Para.hmF2
         mask2 = np.logical_not(mask1)
 
         h_bot = h[mask1]
@@ -58,7 +181,7 @@ class NequickG:
         N[mask1] = self.bottomside.electrondensity(h_bot)
         N[mask2] = self.topside.electrondensity(h_top)
 
-        assert(not np.any(N<0))
+        assert (not np.any(N < 0))
 
         return N
 
@@ -71,7 +194,7 @@ class NequickG:
         :return:
         """
 
-        assert (h2>h1)
+        assert (h2 > h1)
 
         if tolerance == None:
             if h1 < 1000:
@@ -83,57 +206,42 @@ class NequickG:
 
         GN1 = self.__single_quad(h1, h2, n)
         n *= 2
-        GN2 = self.__single_quad(h1, h2, n)
+        GN2 = self.__single_quad(h1, h2, n)  # there is repeated work here. can be optimized
 
         count = 1
-        while (abs(GN2-GN1) > tolerance * abs(GN1)) and count<5:
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
             GN1 = GN2
             n *= 2
             GN2 = self.__single_quad(h1, h2, n)
             count += 1
 
-        return (GN2 + (GN2 - GN1) / 15.0) * 10**-13
+        return (GN2 + (GN2 - GN1) / 15.0)
 
     def __single_quad(self, h1, h2, n):
 
         delta = float(h2 - h1) / n
-        g = .5773502691896* delta # delta / sqrt(3)
-        y = h1 + (delta - g)/2.0
+        g = .5773502691896 * delta  # delta / sqrt(3)
+        y = h1 + (delta - g) / 2.0
 
         h = np.empty(2 * n)
         I = np.arange(n)
         h[0::2] = y + I * delta
         h[1::2] = y + I * delta + g
-        N = self.vertical_electrondensity(h)
+        N = self.electrondensity(h)
         GN = delta / 2.0 * np.sum(N)
 
         return GN
-
-    def sTEC(self, h1, lat1, lon1, h2, lat2, lon2):
-        """
-
-        :param h1:
-        :param lat1:
-        :param lon1:
-        :param h2:
-        :param lat2:
-        :param lon2:
-        :return:
-        """
-        n = 8
-        roughpaper = SlantRayAnalysis(h1, lat1, lon1, h2, lat2, lon2)
-        s1, s2 = roughpaper.ray_endpoints()
-        ss = np.linspace(s1, s2, 8)
-        for s in ss:
-            rp, latp, lonp = roughpaper.ray_coords(s)
-
 
 
 class SlantRayAnalysis:
     """
     This class automatically computes all geometric quanties related to slant ray.
     Think of it as an intern who does all the tedious calculation
+
+    Intermediate computation uses Ray Perigee as construct
+    Reference: 2.5.8.2
     """
+
     def __init__(self, h1, lat1, lon1, h2, lat2, lon2):
 
         self.h1 = h1
@@ -143,11 +251,11 @@ class SlantRayAnalysis:
         self.lon1 = lon1
         self.lon2 = lon2
 
-        self.zenith = self.__zenith_angle(h1,lat1,lon1,h2,lat2,lon2)
+        self.zenith = self.__zenith_angle(h1, lat1, lon1, h2, lat2, lon2)
         self.rp = self.__ray_perigee_radius(h1, h2, self.zenith)
         self.latp, self.lonp = self.__ray_perigee_coord(lat1, lon1, lat2, lon2, self.zenith)
         self.great_angle = self.__great_circle_angle(lat2, lon2, self.latp, self.lonp)
-        self.sigma_azimuth = self.__ray_perigee_azimuth(lat2, lon2, self.latp, self.lonp, self.great_angle)
+        self.sigma_p = self.__ray_perigee_azimuth(lat2, lon2, self.latp, self.lonp, self.great_angle)
 
     def rayperigee_position(self):
         return self.rp, self.latp, self.lonp
@@ -156,33 +264,45 @@ class SlantRayAnalysis:
         r1 = 6371.2 + self.h1
         r2 = 6371.2 + self.h2
 
-        s1 = np.sqrt(r1**2 - self.rp**2)
-        s2 = np.sqrt(r2**2 - self.rp**2)
+        s1 = np.sqrt(r1 ** 2 - self.rp ** 2)
+        s2 = np.sqrt(r2 ** 2 - self.rp ** 2)
 
         return s1, s2
 
     def ray_coords(self, s):
-        rp, latp, lonp, azimuth = self.rp, self.latp, self.lonp, self.sigma_azimuth
 
-        DR = np.pi/ 180
-        sine_azimuth, cosine_azimuth = (np.sin(azimuth * DR), np.cos(azimuth * DR))
-        hs = np.sqrt(s**2 + rp**2) - 6371.2
-        #great circle parameters
+        hs = np.sqrt(np.power(s, 2) + self.rp ** 2) - 6371.2
+
+        rp, latp, lonp, sigma_p = self.rp, self.latp, self.lonp, self.sigma_p
+
+        DR = np.pi / 180
+        sine_sigma_p, cosine_sigma_p = (np.sin(sigma_p * DR), np.cos(sigma_p * DR))
+        # great circle parameters
         # perigee triangle angle
-        tan_delta = s / rp
-        cosine_delta = 1.0 / np.sqrt(1 + tan_delta**2)
+        tan_delta = np.divide(s, rp)
+        cosine_delta = 1.0 / np.sqrt(1 + tan_delta ** 2)
+
         sine_delta = tan_delta * cosine_delta
         # lat
-        sin_lats = np.sin(latp * DR)*cosine_delta + np.cos(latp * DR)*sine_delta * cosine_azimuth
-        cos_lats = np.sqrt(1-sin_lats**2)
+        sin_lats = np.sin(latp * DR) * cosine_delta + np.cos(latp * DR) * sine_delta * cosine_sigma_p
+        cos_lats = np.sqrt(1 - sin_lats ** 2)
         lats = np.arctan2(sin_lats, cos_lats) * 180 / np.pi
 
         # lon
-        sin_lon = sine_delta*sine_azimuth *np.cos(latp * DR)
-        cos_lon = cosine_delta - np.sin(latp *DR) * sin_lats
-        lons = np.arctan2(sin_lon, cos_lon) * 180 / np.pi + lonp
+        sin_lons = sine_delta * sine_sigma_p * np.cos(latp * DR)
+        cos_lons = cosine_delta - np.sin(latp * DR) * sin_lats
+        lons = np.arctan2(sin_lons, cos_lons) * 180 / np.pi + lonp
 
         return hs, lats, lons
+
+    def __greatcircle_delta(self, lat1, lon1, lat2, lon2):
+        DR = np.pi / 180.0
+
+        cosine_delta = np.sin(lat1 * DR) * np.sin(lat2 * DR) + np.cos(lat1 * DR) * np.cos(lat2 * DR) * np.cos(
+            (lon2 - lon1) * DR)
+        sine_delta = np.sqrt(1 - cosine_delta ** 2)
+
+        return np.arctan2(sine_delta, cosine_delta) * 180 / np.pi
 
     def __zenith_angle(self, h1, lat1, lon1, h2, lat2, lon2):
         """
@@ -193,24 +313,22 @@ class SlantRayAnalysis:
         :param lon2: [deg]
         :return: [deg]
         """
-        DR = np.pi/180
+        delta = self.__greatcircle_delta(lat1, lon1, lat2, lon2)
 
-        lat1 = lat1 * DR
-        lon1 = lon1 * DR
-        lat2 = lat2 * DR
-        lon2 = lon2 * DR
-
-        cosine = np.sin(lat1) * np.sin(lat2) +np.cos(lat1) * np.cos(lat2) *np.cos(lon2 - lon1)
-        sine = np.sqrt(1 - cosine**2)
+        # cosine = np.sin(lat1) * np.sin(lat2) +np.cos(lat1) * np.cos(lat2) *np.cos(lon2 - lon1)
+        # sine = np.sqrt(1 - cosine**2)
+        DR = np.pi / 180
+        cosine = np.cos(delta * DR)
+        sine = np.sin(delta * DR)
 
         r1 = 6371.2 + h1
         r2 = 6371.2 + h2
 
-        zenith = np.arctan2(sine, cosine - r2/r1) * 180.0/np.pi
+        zenith = np.arctan2(sine, cosine - r1 / r2) * 180.0 / np.pi
 
         return zenith
 
-    #Ray-perigee computation
+    # Ray-perigee computation
     def __ray_perigee_radius(self, h1, h2, zenith):
 
         r1 = 6371.2 + h1
@@ -222,72 +340,155 @@ class SlantRayAnalysis:
 
         return rp
 
-    def __ray_perigee_coord(self, lat1, lon1,  lat2, lon2, zenith):
+    def __ray_perigee_coord(self, lat1, lon1, lat2, lon2, zenith):
+
+        assert not np.any(np.array(lat1) > 90)
+        assert not np.any(np.array(lat2) > 90)
+        assert not np.any(np.array(lon1) > 90)
+        assert not np.any(np.array(lon2) > 90)
+        assert not np.any(np.array(zenith) > 180)
+
+        assert not np.any(np.array(lat1) < -90)
+        assert not np.any(np.array(lat2) < -90)
+        assert not np.any(np.array(lon1) < -90)
+        assert not np.any(np.array(lon2) < -90)
+        assert not np.any(np.array(zenith) < -180)
+
         DR = np.pi / 180.0
+        delta = self.__greatcircle_delta(lat1, lon1, lat2, lon2)
+        cosine_delta = np.cos(delta * DR)
+        sine_delta = np.sin(delta * DR)
 
-        sine_sigma = np.sin((lon2 - lon1) * DR) * np.cos(lat2 * DR) / np.sin(zenith * DR)
-        cosine_sigma = ( np.sin(lat2 * DR) - np.cos(zenith * DR) * np.sin(lat1) ) / ( np.sin(zenith * DR) * np.cos(lat1 * DR))
+        sine_sigma = np.sin((lon2 - lon1) * DR) * np.cos(lat2 * DR) / sine_delta
+        cosine_sigma = (np.sin(lat2 * DR) - cosine_delta * np.sin(lat1 * DR)) / (sine_delta * np.cos(lat1 * DR))
 
-        zenith_p = 90 - zenith
+        assert not np.any(np.array(sine_sigma) > 1)
+        assert not np.any(np.array(cosine_sigma) > 1)
 
-        sine_latp = np.sin(lat1 * DR) * np.cos(zenith_p * DR) - np.cos(lat1*DR) * np.sin(zenith_p * DR) * cosine_sigma
-        cosine_latp = np.sqrt(1-sine_latp**2)
+        delta_p = 90 - zenith
 
-        if abs(abs(lat1) - 90) < 10**-10 * 180/np.pi:
+        sine_latp = np.sin(lat1 * DR) * np.cos(delta_p * DR) - np.cos(lat1 * DR) * np.sin(delta_p * DR) * cosine_sigma
+        cosine_latp = np.sqrt(1 - sine_latp ** 2)
+
+        assert not np.any(np.array(sine_latp) > 1)
+        assert not np.any(np.array(cosine_latp) > 1)
+
+        if abs(abs(lat1) - 90) < 10 ** -10 * 180 / np.pi:
             if lat1 < 0:
                 latp = -zenith
             else:
                 latp = zenith
 
         else:
-            latp = np.arctan2(sine_latp, cosine_latp) * 180/np.pi
+            latp = np.arctan2(sine_latp, cosine_latp) * 180 / np.pi
 
-        if abs(abs(lat1) - 90) < 10**-10:
+        if abs(abs(lat1) - 90) < 10 ** -10:
             if zenith < 0:
                 lonp = lon2
             else:
                 lonp = lon2 + 180
         else:
-            sine_lonp = - sine_sigma  * np.sin(zenith_p * DR) / np.cos(latp * DR)
-            cosine_lonp = (np.cos(zenith_p * DR) - np.sin(lat1 * DR) * np.sin(latp * DR)) / (np.cos(lat1 * DR) * np.cos(latp*DR))
-
-            lonp = np.arctan2(sine_lonp, cosine_lonp ) * 180/np.pi + lon1
+            sine_lonp = - sine_sigma * np.sin(delta_p * DR) / np.cos(latp * DR)
+            cosine_lonp = (np.cos(delta_p * DR) - np.sin(lat1 * DR) * np.sin(latp * DR)) / (
+            np.cos(lat1 * DR) * np.cos(latp * DR))
+            lonp = np.arctan2(sine_lonp, cosine_lonp) * 180 / np.pi + lon1
 
         return latp, lonp
 
-
     def __great_circle_angle(self, lat2, lon2, latp, lonp):
-        DR = np.pi/180
-        if abs(abs(latp) - 90)  <  10**10 * 180/np.pi:
+        DR = np.pi / 180
+        if abs(abs(latp) - 90) < 10 ** 10 * 180 / np.pi:
             return abs(lat2 - latp)
         else:
-            cosine = np.sin(latp * DR) * np.sin(lat2*DR) + np.cos(latp * DR)*np.cos(lat2*DR) * np.cos((lon2-lonp)*DR)
-            sine = np.sqrt(1-cosine**2)
+            cosine = np.sin(latp * DR) * np.sin(lat2 * DR) + np.cos(latp * DR) * np.cos(lat2 * DR) * np.cos(
+                (lon2 - lonp) * DR)
+            sine = np.sqrt(1 - cosine ** 2)
 
-            return np.arctan2(sine, cosine) * 180/np.pi
+            return np.arctan2(sine, cosine) * 180 / np.pi
 
     def __ray_perigee_azimuth(self, lat2, lon2, latp, lonp, great_angle):
 
-        if abs(abs(latp) - 90) < 10**-10 * 180/np.pi:
-            if latp <0:
+        if abs(abs(latp) - 90) < 10 ** -10 * 180 / np.pi:
+            if latp < 0:
                 return 0
             else:
                 return 180
         else:
             DR = np.pi / 180.0
 
-            sine_sigma = np.sin((lon2 - lonp) * DR) * np.cos(lat2 * DR) / np.sin(great_angle * DR)
-            cosine_sigma = ( np.sin(lat2 * DR) - np.cos(great_angle * DR) * np.sin(latp) ) / ( np.sin(great_angle * DR) * np.cos(latp * DR))
-            return np.arctan2(sine_sigma, cosine_sigma) * 180/np.pi
+            sine_sigmap = np.sin((lon2 - lonp) * DR) * np.cos(lat2 * DR) / np.sin(great_angle * DR)
+            cosine_sigmap = (np.sin(lat2 * DR) - np.cos(great_angle * DR) * np.sin(latp)) / (
+            np.sin(great_angle * DR) * np.cos(latp * DR))
+            return np.arctan2(sine_sigmap, cosine_sigmap) * 180 / np.pi
 
+class SlantRayAnalysis2:
+    """
+    Similar to SlantRayAnalysis. Except that intermediate computation is done in cartesian which is much simpler
+    """
+    def __init__(self, h1, lat1, lon1, h2, lat2, lon2):
 
+        self.h1 = h1
+        self.h2 = h2
+        self.lat1 = lat1
+        self.lat2 = lat2
+        self.lon1 = lon1
+        self.lon2 = lon2
+
+        self.x1, self.y1, self.z1 = self.__coord2cartesian(6371.2 + h1, lat1, lon1)
+        self.x2, self.y2, self.z2 = self.__coord2cartesian(6371.2 + h2, lat2, lon2)
+
+    def __coord2cartesian(self, r, lat, lon):
+        """
+
+        :param r: [km]
+        :param lat: [deg]
+        :param lon: [deg]
+        :return:
+        """
+        DR = np.pi/180
+        x = r * np.cos(lat * DR) * np.cos(lon * DR)
+        y = r * np.cos(lat * DR) * np.sin(lon * DR)
+        z = r * np.sin(lat * DR)
+
+        return x, y, z
+
+    def __cartesian2coord(self, x, y, z):
+        """
+
+        :param x: [km]
+        :param y: [km]
+        :param z: [km]
+        :return:
+        """
+        r = np.sqrt(x**2 + y**2 + z**2)
+
+        xy = np.sqrt(x**2 + y**2)
+
+        lat = np.arctan(z / xy) * 180 / np.pi
+        lon = np.arctan2(y, x) * 180 / np.pi
+
+        return r, lat, lon
+
+    def __radius2height(self, r):
+        return r - 6371.2
+
+    def __height2radius(self, h):
+        return h + 6371.2
+
+    def intermediatepoints(self, n):
+        xx = np.linspace(self.x1, self.x2, n)
+        yy = np.linspace(self.y1, self.y2, n)
+        zz = np.linspace(self.z1, self.z2, n)
+
+        rr, latlat, lonlon = self.__cartesian2coord(xx, yy, zz)
+        return rr, latlat, lonlon
 
 
 class NequickG_parameters:
     def __init__(self, pos, broadcast, time):
-        self.Position = pos # Nequick position object
-        self.Broadcast = broadcast # Nequick broadcast object
-        self.Time = time # Nequick time object
+        self.Position = pos  # Nequick position object
+        self.Broadcast = broadcast  # Nequick broadcast object
+        self.Time = time  # Nequick time object
         self.stmodip_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/modipNeQG_wrapped.txt'
         self.CCIR_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/ccir'
         self.compute_parameters()
@@ -539,7 +740,7 @@ class NequickG_parameters:
         path = self.CCIR_path
         month = self.Time.mth
         data = []
-        with open(path  + str(month + 10) + '.txt') as f:
+        with open(path + str(month + 10) + '.txt') as f:
             for row in csv.reader(f, delimiter=' '):
                 row = [num for num in row if num != '']  # filter
                 data = data + [float(num) for num in row]
@@ -885,11 +1086,8 @@ class NequickG_parameters:
         return self.H0
 
 
-
-
-
 class NequickG_bottomside:
-    def __init__(self, hmE, hmF1, hmF2, BEtop, BEbot, B1top, B1bot, B2bot, A1,A2,A3):
+    def __init__(self, hmE, hmF1, hmF2, BEtop, BEbot, B1top, B1bot, B2bot, A1, A2, A3):
         self.hmF2 = hmF2
         self.hmF1 = hmF1
         self.hmE = hmE
@@ -905,7 +1103,6 @@ class NequickG_bottomside:
         self.AmpE = A3
 
     def electrondensity(self, h):
-
         assert not np.any(h > self.hmF2)
 
         if type(h) != np.ndarray:
@@ -966,7 +1163,6 @@ class NequickG_bottomside:
         BC = 1 - 10 * (EpstF2 * dsF2 + EpstF1 * dsF1 + EpstE * dsE) / S
         z = (h - 100) / 10.0
 
-
         N[mask2] = S[mask2] * np.exp(1 - BC[mask2] * z[mask2] - np.exp(-z[mask2])) * 10 ** 11
 
         return N
@@ -979,7 +1175,7 @@ class NequickG_topside:
         self.H0 = H0
 
     def electrondensity(self, h):
-        assert not np.any(h<=self.hmF2)
+        assert not np.any(h <= self.hmF2)
         g = 0.125
         r = 100
 
@@ -1003,4 +1199,3 @@ class NequickG_topside:
         return N
 
 ########################################################################################
-
