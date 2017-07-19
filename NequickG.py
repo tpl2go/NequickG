@@ -3,13 +3,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from aux import *
 
-class Position:
-    def __init__(self, mth, universal_time, latitude, longitude):
+class NEQTime:
+    def __init__(self, mth, universal_time):
         self.mth = mth  # {01, 02, 03 ... 11, 12}
         self.universal_time = universal_time  # hours and decimals
+
+class Position:
+    def __init__(self, latitude, longitude):
         self.latitude = latitude  # degrees
         self.longitude = longitude  # degrees
-        self.localtime = localtime(self.universal_time, self.longitude)  # hours and decimals
 
 class GalileoBroadcast:
     def __init__(self, ai0, ai1, ai2):
@@ -17,25 +19,30 @@ class GalileoBroadcast:
         self.ai1 = ai1
         self.ai2 = ai2
 
+
+class NequickG_global:
+    def __init__(self, time, broadcast):
+        """
+
+        :param time: Nequick time object
+        :param broadcast: Nequick broadcast object
+        """
+        self.time = time
+        self.broadcast = broadcast
+
+    def get_Nequick(self, position):
+        Para = NequickG_parameters(position, self.broadcast, self.time)
+        return NequickG(Para)
+
+
+
 class NequickG:
-    def __init__(self, rx, bx):
-        """
-
-        :param rx: eg: rx = Position(10,12,30,0)
-        :param bx: bx = GalileoBroadcast(80,0,0)
-        
-        """
-        self.rx = rx
-        self.bx = bx
-
-        self.Para = NequickG_parameters(rx,bx)
-
-        self.topside_para = self.Para.topside_para()
-        self.bottomside_para = self.Para.bottomside_para()
-
-        self.topside = NequickG_topside(*self.topside_para)
-        self.bottomside = NequickG_bottomside(*self.bottomside_para)
-
+    def __init__(self, parameters):
+        self.Para = parameters
+        topside_para = parameters.topside_para()
+        bottomside_para = parameters.bottomside_para()
+        self.topside = NequickG_topside(*topside_para)
+        self.bottomside = NequickG_bottomside(*bottomside_para)
 
     def vertical_electrondensity(self, h):
         assert( type(h) == np.ndarray )
@@ -113,7 +120,12 @@ class NequickG:
         :param lon2:
         :return:
         """
-        pass
+        n = 8
+        roughpaper = SlantRayAnalysis(h1, lat1, lon1, h2, lat2, lon2)
+        s1, s2 = roughpaper.ray_endpoints()
+        ss = np.linspace(s1, s2, 8)
+        for s in ss:
+            rp, latp, lonp = roughpaper.ray_coords(s)
 
 
 
@@ -272,9 +284,10 @@ class SlantRayAnalysis:
 
 
 class NequickG_parameters:
-    def __init__(self, rx, bx):
-        self.Position = rx
-        self.Broadcast = bx
+    def __init__(self, pos, broadcast, time):
+        self.Position = pos # Nequick position object
+        self.Broadcast = broadcast # Nequick broadcast object
+        self.Time = time # Nequick time object
         self.stmodip_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/modipNeQG_wrapped.txt'
         self.CCIR_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/ccir'
         self.compute_parameters()
@@ -425,8 +438,8 @@ class NequickG_parameters:
         :return:(Cosine, Sine)
         """
 
-        month = self.Position.mth
-        universal_time = self.Position.universal_time
+        month = self.Time.mth
+        universal_time = self.Time.universal_time
 
         # Compute day of year at the middle of the month
         dy = 30.5 * month - 15
@@ -445,6 +458,9 @@ class NequickG_parameters:
 
         return (Cosine, Sine)
 
+    def __localtime(self, universal_time, longitude):
+        return universal_time + longitude / 15.0
+
     def __solar_zenith__(self):
         """
         Reference : Section 2.5.4.7
@@ -456,7 +472,7 @@ class NequickG_parameters:
         """
 
         latitude = self.Position.latitude
-        LT = self.Position.localtime
+        LT = self.__localtime(self.Time.universal_time, self.Position.longitude)
         solarsine = self.solarsine
         solarcosine = self.solarcosine
 
@@ -492,7 +508,7 @@ class NequickG_parameters:
         latitude = self.Position.latitude
         Az = self.Az
         chi_eff = self.chi_eff
-        month = self.Position.mth
+        month = self.Time.mth
 
         # Define the seas parameter as a function of the month of the year as follows
         if (month in [1, 2, 11, 12]):
@@ -521,7 +537,7 @@ class NequickG_parameters:
         :return:f2_ijk array and fm3_ijk
         """
         path = self.CCIR_path
-        month = self.Position.mth
+        month = self.Time.mth
         data = []
         with open(path  + str(month + 10) + '.txt') as f:
             for row in csv.reader(f, delimiter=' '):
@@ -562,7 +578,7 @@ class NequickG_parameters:
         :param Am3:
         :return:CF2, Cm3 vectors of coefficients for Legendre calculation for foF2 and M(3000)F2
         """
-        UT = self.Position.universal_time
+        UT = self.Time.universal_time
         AF2 = self.AF2
         Am3 = self.Am3
 
@@ -843,7 +859,7 @@ class NequickG_parameters:
         :param Azr:
         :return:
         """
-        mth = self.Position.mth
+        mth = self.Time.mth
         if mth in [4, 5, 6, 7, 8, 9]:
             ka = 6.705 - 0.014 * self.Azr - 0.008 * self.hmF2
         elif mth in [1, 2, 3, 10, 11, 12]:

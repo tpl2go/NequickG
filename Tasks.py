@@ -1,25 +1,28 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.basemap import Basemap
-from NequickG import Position, GalileoBroadcast, NequickG
+from NequickG import NEQTime, Position, GalileoBroadcast, NequickG, NequickG_global
 
 
 def Task1():
     # TASK 1: Plot NequickG at 8 different locations
 
     #mth = 10, universal_time = 12, latitude = 30, longitude = 0
+    time = [10, 12]
     positions = [
-        [10, 12, 30, 0],
-        [10, 12, 45, 0],
-        [10, 12, 60, 0],
-        [10, 12, 75, 0]]
+        [30, 0],
+        [45, 0],
+        [60, 0],
+        [75, 0]]
     broadcasts = [[80,0,0],[193,0,0]]
+    TX = NEQTime(*time)
+    for bx in broadcasts:
+        BX = GalileoBroadcast(*bx)
+        for pos in positions:
 
-    for pos in positions:
-        for bx in broadcasts:
             RX = Position(*pos)
-            BX = GalileoBroadcast(*bx)
-            NEQ = NequickG(RX,BX)
+            NEQ_global = NequickG_global(TX,BX)
+            NEQ = NEQ_global.get_Nequick(RX)
 
             hmin = 100
             hmax = 1000
@@ -31,7 +34,7 @@ def Task1():
             plt.xlabel('Height(km)')
             plt.ylabel("Electron Density (m^-3)")
             Azr = NEQ.Para.Azr
-            label = "Azr" + str(int(Azr)) + " Oct 12UT " + str(pos[2]) + "N " + str(pos[3]) + "E"
+            label = "Azr" + str(int(Azr)) + " Oct 12UT " + str(pos[0]) + "N " + str(pos[1]) + "E"
             plt.title("Nequick-G:\n" + label)
             plt.grid()
             #plt.savefig(label)
@@ -40,12 +43,14 @@ def Task1():
 
 def Task2():
     #test vTEC
-    RX = Position(10,12,30,0)
+    TX = NEQTime(10,12)
+    RX = Position(30,0)
     BX = GalileoBroadcast(80,0,0)
-    NEQ = NequickG(RX, BX)
+    NEQ_global = NequickG_global(TX, BX)
+    NEQ = NEQ_global.get_Nequick(RX)
     print NEQ.vTEC(100,1000)
 
-# Task2()
+Task2()
 
 def Task3():
     # vTEC map
@@ -54,12 +59,14 @@ def Task3():
     for lat in np.arange(40, 60, 0.5):
         vTEC_lon = []
         for lon in range(-20, 20, 1):
-            pos = [10, 12] + [lat, lon]
+            pos = [lat, lon]
+            TX = NEQTime(10, 12)
             RX = Position(*pos)
-            NEQ = NequickG(RX,BX)
+            NEQ_global = NequickG_global(TX, BX)
+            NEQ = NEQ_global.get_Nequick(RX)
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
-
+    plt.figure()
     plt.contour(vTEC)
     plt.show()
 
@@ -69,6 +76,7 @@ def Task4():
     # set up orthographic map projection with
     # perspective of satellite looking down at 50N, 100W.
     # use low resolution coastlines.
+    plt.figure()
     mapp = Basemap(projection='ortho',lat_0=43,lon_0=1.4,resolution='l')
     # draw coastlines, country boundaries, fill continents.
     mapp.drawcoastlines(linewidth=0.25)
@@ -87,9 +95,13 @@ def Task4():
     for lat in lats:
         vTEC_lon = []
         for lon in lons:
-            pos = [10, 12] + [lat, lon]
+
+            pos = [lat, lon]
+            TX = NEQTime(10, 12)
             RX = Position(*pos)
-            NEQ = NequickG(RX,BX)
+            NEQ_global = NequickG_global(TX, BX)
+            NEQ = NEQ_global.get_Nequick(RX)
+
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
     x, y = np.meshgrid(lons, lats)
@@ -98,7 +110,7 @@ def Task4():
     plt.title('contour lines over filled continent background')
     plt.show()
 
-Task4()
+# Task4()
 
 
 

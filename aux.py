@@ -1,7 +1,6 @@
 import numpy as np
 
-def localtime(universal_time, longitude):
-    return universal_time + longitude / 15.0
+
 
 
 def interpolate(z1, z2, z3, z4, x):
