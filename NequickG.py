@@ -2,6 +2,8 @@ import csv
 import numpy as np
 import matplotlib.pyplot as plt
 from aux import *
+import time
+import pickle
 
 
 class NEQTime:
@@ -9,11 +11,24 @@ class NEQTime:
         self.mth = mth  # {01, 02, 03 ... 11, 12}
         self.universal_time = universal_time  # hours and decimals
 
+    def __hash__(self):
+        return hash((self.mth, self.universal_time))
+
+    def __eq__(self, other):
+        return (self.mth, self.universal_time) == (other.mth, other.universal_time)
+
 
 class Position:
     def __init__(self, latitude, longitude):
         self.latitude = latitude  # degrees
         self.longitude = longitude  # degrees
+
+    def __hash__(self):
+        return hash((int(self.latitude), int(self.longitude)/2))
+
+    def __eq__(self, other):
+        # arbitrary design decision: decimal places in position have no significance
+        return (int(self.latitude), int(self.longitude)/2) == (int(other.latitude), int(other.longitude)/2)
 
 
 class GalileoBroadcast:
@@ -47,7 +62,7 @@ class NequickG_global:
             return models
         else:
             Para = NequickG_parameters(position, self.broadcast, self.time)
-            return NequickG(Para)
+            return NequickG(Para), Para
 
     def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2, tolerance=None):
         "this method avoids the 0.1km threshold in ray perigee radius"
@@ -97,7 +112,7 @@ class NequickG_global:
 
         for i in range(len(lats)):
             pos = Position(lats[i], lons[i])
-            NEQ = self.get_Nequick_local(pos)
+            NEQ, para = self.get_Nequick_local(pos)
             NEQs.append(NEQ)
             electrondensity.append(NEQ.electrondensity(hh[i]))
         GN = delta / 2.0 * np.sum(electrondensity)
@@ -126,7 +141,7 @@ class NequickG_global:
         roughpaper = SlantRayAnalysis(h1, lat1, lon1, h2, lat2, lon2)
 
         if roughpaper.rp < 0.1:
-            neq = self.get_Nequick_local(Position(lat1, lon1))
+            neq, para = self.get_Nequick_local(Position(lat1, lon1))
             return neq.vTEC(h1, h2)
 
         s1, s2 = roughpaper.ray_endpoints()
@@ -176,16 +191,101 @@ class NequickG_global:
         for i in range(len(lats)):
             pos = Position(lats[i], lons[i])
             positions.append(pos)
-            NEQ = self.get_Nequick_local(pos)
+            NEQ, para = self.get_Nequick_local(pos)
             NEQs.append(NEQ)
             electrondensity.append(NEQ.electrondensity(heights[i]))
         GN = delta / 2.0 * np.sum(electrondensity)
         return GN
 
+    def skyview(self, Pos, range, resolution):
+        """
+
+        :param Pos:
+        :param range: [deg]
+        :param resolution: [integer]
+        :return:
+        """
+        assert (range < 60) and (range > 0) # arbitrarily imposed upperbound
+        assert (type(resolution) == int)
+        lat0 = Pos.latitude
+        lon0 = Pos.longitude
+        lats = np.linspace(-range,range, resolution) + lat0
+        lons = np.linspace(-range, range, resolution) + lon0
+
+        #wrapping
+        lats[lats>90] = 180 - lats[lats>90]
+        lats[lats<-90] = -180 - lats[lats>90]
+        lons[lons>180] = lons[lons>180] - 360
+        lons[lons<-180] = lons[lons>180] + 360
+
+        models = np.empty([resolution, resolution])
+        for i in range(resolution):
+            for j in range(resolution):
+                NEQ, para = self.get_Nequick_local(Pos)
+                models[j,i] = NEQ
+
+    def map(self, resolution=40):
+        lats = np.linspace(-60,60, resolution)
+        lons = np.linspace(-180, 180, resolution)
+
+        latlat, lonlon = np.meshgrid(lats, lons)
+
+        vtec = np.empty([resolution, resolution])
+
+        for i in range(resolution):
+            for j in range(resolution):
+                lat = lats[i]
+                lon = lons[j]
+
+                pos = Position(lat, lon)
+                neq, para = self.get_Nequick_local(pos)
+                vtec[j,i] = neq.vTEC(100,1000)
+
+        return latlat, lonlon, vtec
+
+    def map3D(self):
+        X = np.linspace(-7500, 7500, 50)
+        Y = np.linspace(-7500, 7500, 50)
+        Z = np.linspace(-6000, 6000, 50)
+
+        xxx, yyy, zzz = np.meshgrid(X,Y,Z)
+
+        rrr, lll, ooo = cartesian2coord(xxx, yyy, zzz)
+
+        hhh = rrr - 6371.2
+        mask = rrr > 6500
+
+        # print lll
+
+        positions = map(Position, lll[mask].ravel(), ooo[mask].ravel())
+        print len(positions)
+        positions = list(set(positions))
+        print len(positions)
+
+        try:
+            with open('neqs_map3D.pkl', 'rb') as pkl_file:
+                pickle.load(pkl_file)
+        except IOError:
+            with file('neqs_map3D.pkl', 'w') as pkl_file:
+                neqs = {pos: self.get_Nequick_local(pos)[0] for pos in positions} # expected: 3+mins
+                pickle.dump(neqs, pkl_file)
+        # self.get_Nequick_local(positions[0])
+
+        nnn = np.zeros(np.shape(hhh))
+        for i in range(50):
+            for j in range(50):
+                for k in range(50):
+                    p = Position(lll[k,j,i], ooo[k,j,i])
+                    neq = neqs[p]
+                    nnn[k,j,i] = neq.electrondensity(hhh[k,j,i])
+
+
+
 
 class NequickG:
     def __init__(self, parameters):
-        self.Para = parameters
+        # self.Para = parameters
+        self.hmF2 = parameters.hmF2
         topside_para = parameters.topside_para()
         bottomside_para = parameters.bottomside_para()
         self.topside = NequickG_topside(*topside_para)
@@ -199,7 +299,7 @@ class NequickG:
         """
         h = np.array(h)
 
-        mask1 = h < self.Para.hmF2
+        mask1 = h < self.hmF2
         mask2 = np.logical_not(mask1)
 
         h_bot = h[mask1]
@@ -291,7 +391,7 @@ class SlantRayAnalysis:
         return self.rp, self.latp, self.lonp
 
     def ray_endpoints(self):
-        r1 = 6371.2 + self.h1
+        r1 = 6371.2 + self.h1 # radius of earth
         r2 = 6371.2 + self.h2
 
         s1 = np.sqrt(r1 ** 2 - self.rp ** 2)
@@ -608,10 +708,15 @@ class NequickG_parameters:
 
     ############################ STAGE 1####################################
     def __read_stMoDIP__(self):
-        with open(self.stmodip_path) as f:
-            data = list(rec for rec in csv.reader(f, delimiter=','))
-            data = [map(float, row) for row in data]
+        try:
+            data = np.load('stMoDIP.npy')
             return data
+        except IOError:
+            with open(self.stmodip_path) as f:
+                data = list(rec for rec in csv.reader(f, delimiter=','))
+                data = [map(float, row) for row in data]
+                np.save( 'stMoDIP.npz', np.array(data))
+                return data
 
     def __compute_MODIP__(self):
         """
@@ -806,22 +911,30 @@ class NequickG_parameters:
         :param path:
         :return:f2_ijk array and fm3_ijk
         """
-        path = self.CCIR_path
-        month = self.Time.mth
-        data = []
-        with open(path + str(month + 10) + '.txt') as f:
-            for row in csv.reader(f, delimiter=' '):
-                row = [num for num in row if num != '']  # filter
-                data = data + [float(num) for num in row]
-        assert (len(data) == 2858)
+        try:
+            self.F2 = np.load(str(self.Time.mth) + 'F2.npy')
+            self.Fm3 = np.load(str(self.Time.mth) + 'Fm3.npy')
+            return self.F2, self.Fm3
+        except IOError:
+            path = self.CCIR_path
+            month = self.Time.mth
+            data = []
+            with open(path + str(month + 10) + '.txt') as f:
+                for row in csv.reader(f, delimiter=' '):
+                    row = [num for num in row if num != '']  # filter
+                    data = data + [float(num) for num in row]
+            assert (len(data) == 2858)
 
-        F2data = data[:1976]
-        self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
+            F2data = data[:1976]
+            self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
 
-        Fm3data = data[1976:]
-        self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
+            Fm3data = data[1976:]
+            self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
 
-        return self.F2, self.Fm3
+            np.save(str(self.Time.mth) + 'F2.npz', self.F2 )
+            np.save(str(self.Time.mth) + 'Fm3.npz', self.Fm3 )
+
+            return self.F2, self.Fm3
 
     def __interpolate_AZR__(self):
         """

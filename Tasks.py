@@ -22,7 +22,7 @@ def Task1():
 
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX,BX)
-            NEQ = NEQ_global.get_Nequick_local(RX)
+            NEQ, Para = NEQ_global.get_Nequick_local(RX)
 
             hmin = 100
             hmax = 1000
@@ -33,7 +33,7 @@ def Task1():
             plt.plot(h, N)
             plt.xlabel('Height(km)')
             plt.ylabel("Electron Density (m^-3)")
-            Azr = NEQ.Para.Azr
+            Azr = Para.Azr
             label = "Azr" + str(int(Azr)) + " Oct 12UT " + str(pos[0]) + "N " + str(pos[1]) + "E"
             plt.title("Nequick-G:\n" + label)
             plt.grid()
@@ -47,7 +47,7 @@ def Task2():
     RX = Position(40,0)
     BX = GalileoBroadcast(80,0,0)
     NEQ_global = NequickG_global(TX, BX)
-    NEQ = NEQ_global.get_Nequick_local(RX)
+    NEQ, Para = NEQ_global.get_Nequick_local(RX)
     print NEQ.vTEC(100,1000)
 
 
@@ -63,7 +63,7 @@ def Task3():
             TX = NEQTime(10, 12)
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX, BX)
-            NEQ = NEQ_global.get_Nequick_local(RX)
+            NEQ, para = NEQ_global.get_Nequick_local(RX)
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
     plt.figure()
@@ -99,7 +99,7 @@ def Task4():
             TX = NEQTime(10, 12)
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX, BX)
-            NEQ = NEQ_global.get_Nequick_local(RX)
+            NEQ, para = NEQ_global.get_Nequick_local(RX)
 
             vTEC_lon.append(NEQ.vTEC(100,1000))
         vTEC.append(vTEC_lon)
@@ -157,4 +157,12 @@ def Task7():
 # Task5()
 # Task6()
 
-Task7()
+# Task7()
+
+def Task8():
+    TX = NEQTime(10,12)
+    BX = GalileoBroadcast(80,0,0)
+    NEQ_global = NequickG_global(TX, BX)
+    NEQ_global.map3D()
+
+Task8()

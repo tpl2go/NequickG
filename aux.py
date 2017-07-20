@@ -1,5 +1,36 @@
 import numpy as np
 
+def coord2cartesian(r, lat, lon):
+    """
+
+    :param r: [km]
+    :param lat: [deg]
+    :param lon: [deg]
+    :return:
+    """
+    DR = np.pi/180
+    x = r * np.cos(lat * DR) * np.cos(lon * DR)
+    y = r * np.cos(lat * DR) * np.sin(lon * DR)
+    z = r * np.sin(lat * DR)
+
+    return x, y, z
+
+def cartesian2coord(x, y, z):
+        """
+
+        :param x: [km]
+        :param y: [km]
+        :param z: [km]
+        :return:
+        """
+        r = np.sqrt(x**2 + y**2 + z**2)
+
+        xy = np.sqrt(x**2 + y**2)
+
+        lat = np.arctan(z / xy) * 180 / np.pi
+        lon = np.arctan2(y, x) * 180 / np.pi
+
+        return r, lat, lon
 
 
 
