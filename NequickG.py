@@ -558,8 +558,8 @@ class NequickG_parameters:
         self.Position = pos  # Nequick position object
         self.Broadcast = broadcast  # Nequick broadcast object
         self.Time = time  # Nequick time object
-        self.stmodip_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/modipNeQG_wrapped.txt'
-        self.CCIR_path = '/home/tpl/Documents/Airbus/Project/Papers/Nequick/CCIR_MoDIP/ccir'
+        self.stmodip_path = './CCIR_MoDIP/modipNeQG_wrapped.txt'
+        self.CCIR_path = './CCIR_MoDIP/ccir'
         self.compute_parameters()
 
     def compute_parameters(self):
