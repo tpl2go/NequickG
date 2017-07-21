@@ -8,6 +8,7 @@ import CCIR_MoDIP.ccir_fm3
 import CCIR_MoDIP.ccir_f2
 import CCIR_MoDIP.modip
 
+# np.seterr(invalid = 'raise')
 
 class NEQTime:
     def __init__(self, mth, universal_time):
@@ -107,7 +108,7 @@ class NequickG_global:
 
             count += 1
 
-        return (GN2 + (GN2 - GN1) / 15.0)
+        return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
     def __integrate2(self, hh, lats, lons, delta):
         NEQs = []
@@ -162,7 +163,7 @@ class NequickG_global:
             GN2 = self.__integrate(s1, s2, n, roughpaper)
             count += 1
 
-        return (GN2 + (GN2 - GN1) / 15.0)
+        return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
 
     def __sampleX(self, x1, x2, n):
@@ -602,13 +603,12 @@ class NequickG_parameters:
         self.Position = pos  # Nequick position object
         self.Broadcast = broadcast  # Nequick broadcast object
         self.Time = time  # Nequick time object
-        self.stmodip_path = './CCIR_MoDIP/modipNeQG_wrapped.txt'
-        self.CCIR_path = './CCIR_MoDIP/ccir'
+        # self.stmodip_path = './CCIR_MoDIP/modipNeQG_wrapped.txt'
+        # self.CCIR_path = './CCIR_MoDIP/ccir'
         self.compute_parameters()
 
     def compute_parameters(self):
         # Stage 1
-        self.__read_stMoDIP__()
         self.__compute_MODIP__()
         self.__effective_ionization__()
         self.__effective_sunspot_number__()
@@ -651,26 +651,6 @@ class NequickG_parameters:
                 self.A2, self.A3]
 
     ############################ STAGE 1####################################
-    def __read_stMoDIP__(self):
-        # try:
-        #     data = np.load('stMoDIP.npy')
-        #     return data
-        # except IOError:
-        #     with open(self.stmodip_path) as f:
-        #         data = list(rec for rec in csv.reader(f, delimiter=','))
-        #         data = [map(float, row) for row in data]
-        #         np.save( 'stMoDIP.npz', np.array(data))
-        #         return data
-
-        with open(self.stmodip_path) as f:
-            data = list(rec for rec in csv.reader(f, delimiter=','))
-            data = [map(float, row) for row in data]
-            # np.save( 'stMoDIP.npz', np.array(data))
-            # with open('modip.dat', 'w') as g:
-            #     writer = csv.writer(g, delimiter = ' ')
-            #     writer.writerows(data)
-            return data
-
     def __compute_MODIP__(self):
         """
         Reference: Section 2.5.4.3 of GSA's "Ionospheric Correction
@@ -684,8 +664,11 @@ class NequickG_parameters:
 
         latitude = self.Position.latitude
         longitude = self.Position.longitude
-        # stModip = self.__read_stMoDIP__()
         stModip = CCIR_MoDIP.modip.stModip
+
+        lngp = 36
+        dlatp = 5
+        dlngp = 10
 
         if (latitude > 90) or (latitude < -90):
             mu = 90
@@ -697,26 +680,31 @@ class NequickG_parameters:
         if l > 33:
             l = l - 36
         assert (type(l) == int)
-        a = (latitude + 90) / 5.0 + 1
-        x = a - int(a)
-        i = int(a) - 2
+
+        lng1 = (longitude + 180.0) / dlngp
+        sj = int(lng1) - 2
+        dj= lng1 - int(lng1)
+
+        if (sj < 0):
+            sj = sj + lngp
+        if (sj > (lngp - 3)):
+            sj = sj - lngp
+
+        lat1 = (latitude + 90.0) / dlatp + 1
+        si = int(lat1 - 1e-6) - 2
+        di = lat1 - si - 2
+
 
         z = []
-        for j in range(4):
+        for k in range(1,5):
             z_row = []
-            for k in range(4):
-                z_jk = stModip[i + j][l + k]
+            for j in range(1,5):
+                z_jk = stModip[si + j][sj+k + 1]
                 z_row.append(z_jk)
-            z.append(z_row)
-
-        z_k = []
-        for k in range(4):
-            args = [z[0][k], z[1][k], z[2][k], z[3][k]]
-            z_k.append(interpolate(args[0], args[1], args[2], args[3], x))
-
-        b = (longitude + 180) / 10.0
-        y = b - int(b)
-        mu = interpolate(z_k[0], z_k[1], z_k[2], z_k[3], y)
+            z_row.append(di)
+            z.append(interpolate(*z_row))
+        z.append(dj)
+        mu =  interpolate(*z)
         self.modip = mu
         return mu
 
@@ -865,30 +853,6 @@ class NequickG_parameters:
         :param path:
         :return:f2_ijk array and fm3_ijk
         """
-        # try:
-        #     self.F2 = np.load(str(self.Time.mth) + 'F2.npy')
-        #     self.Fm3 = np.load(str(self.Time.mth) + 'Fm3.npy')
-        #     return self.F2, self.Fm3
-        # except IOError:
-
-
-        # t = time.time()
-        # path = self.CCIR_path
-        # month = self.Time.mth
-        # data = []
-        # with open(path + str(month + 10) + '.txt') as f:
-        #     for row in csv.reader(f, delimiter=' '):
-        #         row = [num for num in row if num != '']  # filter
-        #         data = data + [float(num) for num in row]
-        # assert (len(data) == 2858)
-        #
-        # F2data = data[:1976]
-        # self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
-        #
-        # Fm3data = data[1976:]
-        # self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
-        # print time.time() - t
-
 
         self.F2 = np.array(CCIR_MoDIP.ccir_f2.F2[self.Time.mth])
         self.Fm3 = np.array(CCIR_MoDIP.ccir_fm3.Fm3[self.Time.mth])
@@ -1082,11 +1046,7 @@ class NequickG_parameters:
         foF2 = self.foF2
         M3000F2 = self.M3000F2
         numerator = 1490 * M3000F2 * np.sqrt((0.0196 * M3000F2 ** 2 + 1) / (1.2967 * M3000F2 ** 2 - 1))
-        try:
-            assert (not np.any(np.isnan(numerator)))
-        except AssertionError:
-            print self.foF2, self.foE, self.M3000F2
-            raise AssertionError
+        assert (not np.any(np.isnan(numerator)))
         if foE < 10 ** -30:
             deltaM = - 0.012
         else:
@@ -1289,6 +1249,18 @@ class NequickG_bottomside:
         alphaF1 = diffF1 / thickF1
         alphaE = diffE / thickE
 
+        assert( not np.any(np.isnan(alphaE)))
+        assert( not np.any(np.isnan(alphaF1)))
+        assert( not np.any(np.isnan(alphaF2)))
+
+        try:
+            assert( not np.any(alphaE > 80))
+            assert( not np.any(alphaF1 > 80))
+            assert( not np.any(alphaF2 > 80))
+
+        except AssertionError:
+            print alphaE, alphaF1, alphaF2
+
         EpstF2[np.abs(alphaF2) > 25] = 0
         EpstF1[np.abs(alphaF1) > 25] = 0
         EpstE[np.abs(alphaE) > 25] = 0
@@ -1300,7 +1272,7 @@ class NequickG_bottomside:
         S = EpstF2 + EpstF1 + EpstE
         N[mask1] = S[mask1] * 10 ** 11
 
-        mask2 = np.logical_not(mask1)  # chapman corrections needed
+        mask2 = np.logical_not(mask1)  # chapman corrections needed for heights less than 100km
 
         dsF2 = (1 - np.exp(alphaF2)) / (thickF2 * (1 + np.exp(alphaF2)))
         dsF2[np.abs(alphaF2) > 25] = 0
@@ -1348,3 +1320,46 @@ class NequickG_topside:
         return N
 
 ########################################################################################
+
+    #Unit test modip:
+def modip(latitude, longitude):
+
+    # stModip = self.__read_stMoDIP__()
+    stModip = CCIR_MoDIP.modip.stModip
+
+    # if (latitude > 90) or (latitude < -90):
+    #     mu = 90
+    #     return mu
+
+    l = int((longitude + 180) / 10) - 2
+    if l < 0:
+        l = l + 36
+    if l > 33:
+        l = l - 36
+    assert (type(l) == int)
+    a = (latitude + 90) / 5.0 + 1
+    x = a - int(a)
+    i = int(a) - 2
+
+    z = []
+    for j in range(4):
+        z_row = []
+        for k in range(4):
+            z_jk = stModip[i + j][l + k]
+            z_row.append(z_jk)
+        z.append(z_row)
+
+    z_k = []
+    for k in range(4):
+        args = [z[0][k], z[1][k], z[2][k], z[3][k]]
+        z_k.append(interpolate(args[0], args[1], args[2], args[3], x))
+
+    b = (longitude + 180) / 10.0
+    y = b - int(b)
+    mu = interpolate(z_k[0], z_k[1], z_k[2], z_k[3], y)
+    return mu
+
+def unittestmodip():
+    modip(np.arange(10), np.arange(10))
+
+# unitprint

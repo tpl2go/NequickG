@@ -91,7 +91,7 @@ def NeqClipExp(dPower):
 
     assert(not np.any(np.isnan(dPower)))
 
-    mask1 = np.logical_and(dPower < 80, dPower < 80)
+    mask1 = np.logical_and(dPower < 80, dPower > -80)
     mask2 = dPower > 80
     mask3 = dPower < -80
     out = np.exp(dPower, where=mask1)
@@ -116,3 +116,11 @@ def NeqCriticalFreqToNe(f0):
     :return:
     """
     return 0.124 * f0 ** 2
+
+
+if __name__ == "__main__":
+    # unit testing
+    assert NeqClipExp(-100) == 1.8049 * 10 ** -35
+    assert NeqClipExp(100) == 5.5406 * 10 ** 34
+
+    assert np.all(NeqClipExp(np.array([-100, 0, 100])) == np.array([1.8049 * 10 ** -35, 1., 5.5406 * 10 ** 34]))
