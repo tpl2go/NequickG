@@ -30,13 +30,16 @@ def Task1():
 
             N = NEQ.electrondensity(h)
             #plt.figure()
-            plt.plot(h, N)
-            plt.xlabel('Height(km)')
-            plt.ylabel("Electron Density (m^-3)")
             Azr = Para.Azr
             label = "Azr" + str(int(Azr)) + " Oct 12UT " + str(pos[0]) + "N " + str(pos[1]) + "E"
-            plt.title("Nequick-G:\n" + label)
-            plt.grid()
+
+            plt.plot(h, N, label = "Azr" + str(int(Azr))+ " " + str(pos[0]) + "N")
+    plt.xlabel('Height(km)')
+    plt.ylabel("Electron Density (m^-3)")
+
+    plt.title("Nequick-G:\n" + " Oct 12UT ")
+    plt.grid()
+    plt.legend()
             #plt.savefig(label)
     plt.savefig("all")
 
@@ -88,28 +91,48 @@ def Task4():
     mapp.drawparallels(np.arange(-90,90,30))
 
     BX = GalileoBroadcast(80,0,0)
-    vTEC = []
-    lats = np.arange(40, 60, 0.5)
-    lons = np.arange(-20, 20, 1)
-    for lat in lats:
-        vTEC_lon = []
-        for lon in lons:
+    TX = NEQTime(10, 12)
+    NEQ_global = NequickG_global(TX, BX)
+    latlat, lonlon, vTEC = NEQ_global.map(00, -60, 60, 60, resolution=60)
 
-            pos = [lat, lon]
-            TX = NEQTime(10, 12)
-            RX = Position(*pos)
-            NEQ_global = NequickG_global(TX, BX)
-            NEQ, para = NEQ_global.get_Nequick_local(RX)
+    xx, yy = mapp(lonlon, latlat)
+    # xx, yy = mapp(latlat, lonlon)
 
-            vTEC_lon.append(NEQ.vTEC(100,1000))
-        vTEC.append(vTEC_lon)
-    x, y = np.meshgrid(lons, lats)
-    xx, yy = mapp(x, y)
-    cs = mapp.contour(xx, yy, np.array(vTEC), linewidths=1.5)
+    cs = mapp.contour(xx, yy, vTEC, linewidths=1.5)
+    # cs = mapp.contour(xx, yy, vTEC, linewidths=1.5, latlon = True)
     plt.title('vertical Total Electron Count over Toulouse')
     plt.show()
 
+def Task4_1():
 
+    mapp = Basemap(projection='cyl',llcrnrlat= -90.,urcrnrlat= 90.,\
+                  resolution='c',  llcrnrlon=-180.,urcrnrlon=180.)
+    #-- draw coastlines, state and country boundaries, edge of map
+    mapp.drawcoastlines()
+    mapp.drawstates()
+    mapp.drawcountries()
+
+    #-- create and draw meridians and parallels grid lines
+    mapp.drawparallels(np.arange( -90., 90.,30.),labels=[1,0,0,0],fontsize=10)
+    mapp.drawmeridians(np.arange(-180.,180.,30.),labels=[0,0,0,1],fontsize=10)
+
+    BX = GalileoBroadcast(80,0,0)
+    TX = NEQTime(10, 12)
+    NEQ_global = NequickG_global(TX, BX)
+    latlat, lonlon, vTEC = NEQ_global.map(-60, -150, 60, 150, resolution=150)
+    # lonlon, latlat = np.meshgrid(np.linspace(-60,60, 100), np.linspace(-60,60, 100))
+
+    # vTEC = np.ones([100,100])
+    # vTEC = vTEC * np.arange(100)
+    xx, yy = mapp(lonlon, latlat)
+    # xx, yy = mapp(latlat, lonlon)
+
+    cs = mapp.contour(xx, yy, vTEC, linewidths=1.5)
+    # cs = mapp.contour(xx, yy, vTEC, linewidths=1.5, latlon = True)
+    plt.title('vertical Total Electron Count over Toulouse')
+    plt.show()
+
+Task4_1()
 
 
 def Task5():
@@ -163,6 +186,8 @@ def Task8():
     TX = NEQTime(10,12)
     BX = GalileoBroadcast(80,0,0)
     NEQ_global = NequickG_global(TX, BX)
-    NEQ_global.map3D()
+    pos = Position(40,0)
+    NEQ, para = NEQ_global.get_Nequick_local(pos)
+    print NEQ.vTEC_ratio()
 
-Task8()
+# Task4()

@@ -197,38 +197,11 @@ class NequickG_global:
         GN = delta / 2.0 * np.sum(electrondensity)
         return GN
 
-    def skyview(self, Pos, range, resolution):
-        """
+    def map(self, lat1, lon1, lat2, lon2, resolution=40):
+        lats = np.linspace(lat1, lat2, resolution)
+        lons = np.linspace(lon1, lon2, resolution)
 
-        :param Pos:
-        :param range: [deg]
-        :param resolution: [integer]
-        :return:
-        """
-        assert (range < 60) and (range > 0) # arbitrarily imposed upperbound
-        assert (type(resolution) == int)
-        lat0 = Pos.latitude
-        lon0 = Pos.longitude
-        lats = np.linspace(-range,range, resolution) + lat0
-        lons = np.linspace(-range, range, resolution) + lon0
-
-        #wrapping
-        lats[lats>90] = 180 - lats[lats>90]
-        lats[lats<-90] = -180 - lats[lats>90]
-        lons[lons>180] = lons[lons>180] - 360
-        lons[lons<-180] = lons[lons>180] + 360
-
-        models = np.empty([resolution, resolution])
-        for i in range(resolution):
-            for j in range(resolution):
-                NEQ, para = self.get_Nequick_local(Pos)
-                models[j,i] = NEQ
-
-    def map(self, resolution=40):
-        lats = np.linspace(-60,60, resolution)
-        lons = np.linspace(-180, 180, resolution)
-
-        latlat, lonlon = np.meshgrid(lats, lons)
+        lonlon, latlat = np.meshgrid(lons, lats)
 
         vtec = np.empty([resolution, resolution])
 
@@ -239,48 +212,9 @@ class NequickG_global:
 
                 pos = Position(lat, lon)
                 neq, para = self.get_Nequick_local(pos)
-                vtec[j,i] = neq.vTEC(100,1000)
-
+                vtec[i,j] = neq.vTEC(100,1000)
+                # is this [i j] or [j i]
         return latlat, lonlon, vtec
-
-    def map3D(self):
-        X = np.linspace(-7500, 7500, 50)
-        Y = np.linspace(-7500, 7500, 50)
-        Z = np.linspace(-6000, 6000, 50)
-
-        xxx, yyy, zzz = np.meshgrid(X,Y,Z)
-
-        rrr, lll, ooo = cartesian2coord(xxx, yyy, zzz)
-
-        hhh = rrr - 6371.2
-        mask = rrr > 6500
-
-        # print lll
-
-        positions = map(Position, lll[mask].ravel(), ooo[mask].ravel())
-        print len(positions)
-        positions = list(set(positions))
-        print len(positions)
-
-        try:
-            with open('neqs_map3D.pkl', 'rb') as pkl_file:
-                pickle.load(pkl_file)
-        except IOError:
-            with file('neqs_map3D.pkl', 'w') as pkl_file:
-                neqs = {pos: self.get_Nequick_local(pos)[0] for pos in positions} # expected: 3+mins
-                pickle.dump(neqs, pkl_file)
-        # self.get_Nequick_local(positions[0])
-
-        nnn = np.zeros(np.shape(hhh))
-        for i in range(50):
-            for j in range(50):
-                for k in range(50):
-                    p = Position(lll[k,j,i], ooo[k,j,i])
-                    neq = neqs[p]
-                    nnn[k,j,i] = neq.electrondensity(hhh[k,j,i])
-
-
-
 
 class NequickG:
     def __init__(self, parameters):
@@ -345,6 +279,13 @@ class NequickG:
             count += 1
 
         return (GN2 + (GN2 - GN1) / 15.0)
+
+
+    def vTEC_ratio(self):
+        bot = self.vTEC(0, self.hmF2)
+        top = self.vTEC(self.hmF2, 100000)
+
+        return top / bot
 
     def __single_quad(self, h1, h2, n):
 
