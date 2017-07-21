@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 from aux import *
 import time
 import pickle
+import CCIR_MoDIP.ccir_fm3
+import CCIR_MoDIP.ccir_f2
+import CCIR_MoDIP.modip
 
 
 class NEQTime:
@@ -663,9 +666,9 @@ class NequickG_parameters:
             data = list(rec for rec in csv.reader(f, delimiter=','))
             data = [map(float, row) for row in data]
             # np.save( 'stMoDIP.npz', np.array(data))
-            with open('modip.dat', 'w') as g:
-                writer = csv.writer(g, delimiter = ' ')
-                writer.writerows(data)
+            # with open('modip.dat', 'w') as g:
+            #     writer = csv.writer(g, delimiter = ' ')
+            #     writer.writerows(data)
             return data
 
     def __compute_MODIP__(self):
@@ -681,7 +684,8 @@ class NequickG_parameters:
 
         latitude = self.Position.latitude
         longitude = self.Position.longitude
-        stModip = self.__read_stMoDIP__()
+        # stModip = self.__read_stMoDIP__()
+        stModip = CCIR_MoDIP.modip.stModip
 
         if (latitude > 90) or (latitude < -90):
             mu = 90
@@ -866,22 +870,29 @@ class NequickG_parameters:
         #     self.Fm3 = np.load(str(self.Time.mth) + 'Fm3.npy')
         #     return self.F2, self.Fm3
         # except IOError:
-        t = time.time()
-        path = self.CCIR_path
-        month = self.Time.mth
-        data = []
-        with open(path + str(month + 10) + '.txt') as f:
-            for row in csv.reader(f, delimiter=' '):
-                row = [num for num in row if num != '']  # filter
-                data = data + [float(num) for num in row]
-        assert (len(data) == 2858)
 
-        F2data = data[:1976]
-        self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
 
-        Fm3data = data[1976:]
-        self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
-        print time.time() - t
+        # t = time.time()
+        # path = self.CCIR_path
+        # month = self.Time.mth
+        # data = []
+        # with open(path + str(month + 10) + '.txt') as f:
+        #     for row in csv.reader(f, delimiter=' '):
+        #         row = [num for num in row if num != '']  # filter
+        #         data = data + [float(num) for num in row]
+        # assert (len(data) == 2858)
+        #
+        # F2data = data[:1976]
+        # self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
+        #
+        # Fm3data = data[1976:]
+        # self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
+        # print time.time() - t
+
+
+        self.F2 = np.array(CCIR_MoDIP.ccir_f2.F2[self.Time.mth])
+        self.Fm3 = np.array(CCIR_MoDIP.ccir_fm3.Fm3[self.Time.mth])
+
         return self.F2, self.Fm3
 
     def __interpolate_AZR__(self):
