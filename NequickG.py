@@ -8,7 +8,7 @@ import pickle
 
 class NEQTime:
     def __init__(self, mth, universal_time):
-        self.mth = mth  # {01, 02, 03 ... 11, 12}
+        self.mth = int(mth)  # {01, 02, 03 ... 11, 12}
         self.universal_time = universal_time  # hours and decimals
 
     def __hash__(self):
@@ -415,14 +415,14 @@ class SlantRayAnalysis:
 
         assert not np.any(np.array(lat1) > 90)
         assert not np.any(np.array(lat2) > 90)
-        assert not np.any(np.array(lon1) > 90)
-        assert not np.any(np.array(lon2) > 90)
+        assert not np.any(np.array(lon1) > 360)
+        assert not np.any(np.array(lon2) > 360)
         assert not np.any(np.array(zenith) > 180)
 
         assert not np.any(np.array(lat1) < -90)
         assert not np.any(np.array(lat2) < -90)
-        assert not np.any(np.array(lon1) < -90)
-        assert not np.any(np.array(lon2) < -90)
+        assert not np.any(np.array(lon1) < -360)
+        assert not np.any(np.array(lon2) < -360)
         assert not np.any(np.array(zenith) < -180)
 
         DR = np.pi / 180.0
@@ -649,15 +649,24 @@ class NequickG_parameters:
 
     ############################ STAGE 1####################################
     def __read_stMoDIP__(self):
-        try:
-            data = np.load('stMoDIP.npy')
+        # try:
+        #     data = np.load('stMoDIP.npy')
+        #     return data
+        # except IOError:
+        #     with open(self.stmodip_path) as f:
+        #         data = list(rec for rec in csv.reader(f, delimiter=','))
+        #         data = [map(float, row) for row in data]
+        #         np.save( 'stMoDIP.npz', np.array(data))
+        #         return data
+
+        with open(self.stmodip_path) as f:
+            data = list(rec for rec in csv.reader(f, delimiter=','))
+            data = [map(float, row) for row in data]
+            # np.save( 'stMoDIP.npz', np.array(data))
+            with open('modip.dat', 'w') as g:
+                writer = csv.writer(g, delimiter = ' ')
+                writer.writerows(data)
             return data
-        except IOError:
-            with open(self.stmodip_path) as f:
-                data = list(rec for rec in csv.reader(f, delimiter=','))
-                data = [map(float, row) for row in data]
-                np.save( 'stMoDIP.npz', np.array(data))
-                return data
 
     def __compute_MODIP__(self):
         """
@@ -852,30 +861,28 @@ class NequickG_parameters:
         :param path:
         :return:f2_ijk array and fm3_ijk
         """
-        try:
-            self.F2 = np.load(str(self.Time.mth) + 'F2.npy')
-            self.Fm3 = np.load(str(self.Time.mth) + 'Fm3.npy')
-            return self.F2, self.Fm3
-        except IOError:
-            path = self.CCIR_path
-            month = self.Time.mth
-            data = []
-            with open(path + str(month + 10) + '.txt') as f:
-                for row in csv.reader(f, delimiter=' '):
-                    row = [num for num in row if num != '']  # filter
-                    data = data + [float(num) for num in row]
-            assert (len(data) == 2858)
+        # try:
+        #     self.F2 = np.load(str(self.Time.mth) + 'F2.npy')
+        #     self.Fm3 = np.load(str(self.Time.mth) + 'Fm3.npy')
+        #     return self.F2, self.Fm3
+        # except IOError:
+        t = time.time()
+        path = self.CCIR_path
+        month = self.Time.mth
+        data = []
+        with open(path + str(month + 10) + '.txt') as f:
+            for row in csv.reader(f, delimiter=' '):
+                row = [num for num in row if num != '']  # filter
+                data = data + [float(num) for num in row]
+        assert (len(data) == 2858)
 
-            F2data = data[:1976]
-            self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
+        F2data = data[:1976]
+        self.F2 = np.reshape(np.array(F2data), (2, 76, 13))
 
-            Fm3data = data[1976:]
-            self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
-
-            np.save(str(self.Time.mth) + 'F2.npz', self.F2 )
-            np.save(str(self.Time.mth) + 'Fm3.npz', self.Fm3 )
-
-            return self.F2, self.Fm3
+        Fm3data = data[1976:]
+        self.Fm3 = np.reshape(np.array(Fm3data), (2, 49, 9))
+        print time.time() - t
+        return self.F2, self.Fm3
 
     def __interpolate_AZR__(self):
         """
@@ -997,7 +1004,9 @@ class NequickG_parameters:
 
         for i in range(1, 7):
             for j in range(R[i]):
-                M3000F2_n[i] += (Cm3[H[i] + 2 * j - 1] * C[i] + Cm3[H[i] + 2 * j] * S[i]) * (M[j] * P[j])
+                M3000F2_n[i] += Cm3[H[i] + 2 * j] * C[i] * (M[j] * P[j])
+                M3000F2_n[i] += Cm3[H[i] + 2 * j + 1] * S[i] * (M[j] * P[j])
+
 
         self.M3000F2 = np.sum(M3000F2_n)
 
@@ -1062,6 +1071,11 @@ class NequickG_parameters:
         foF2 = self.foF2
         M3000F2 = self.M3000F2
         numerator = 1490 * M3000F2 * np.sqrt((0.0196 * M3000F2 ** 2 + 1) / (1.2967 * M3000F2 ** 2 - 1))
+        try:
+            assert (not np.any(np.isnan(numerator)))
+        except AssertionError:
+            print self.foF2, self.foE, self.M3000F2
+            raise AssertionError
         if foE < 10 ** -30:
             deltaM = - 0.012
         else:
@@ -1157,8 +1171,9 @@ class NequickG_parameters:
         :return:
         """
         if self.foF1 < 0.5:
-            A2 = 0.0
-            A3 = 4.0 * (self.NmE - epstein(self.A1, self.hmF2, self.B2bot, self.hmE))
+            self.A2 = 0.0
+            self.A3 = 4.0 * (self.NmE - epstein(self.A1, self.hmF2, self.B2bot, self.hmE))
+            return self.A2, self.A3
         else:
             A3a = 4.0 * self.NmE
             for i in range(5):

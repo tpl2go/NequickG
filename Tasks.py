@@ -9,11 +9,12 @@ def Task1():
 
     #mth = 10, universal_time = 12, latitude = 30, longitude = 0
     time = [10, 12]
-    positions = [
-        [30, 0],
-        [45, 0],
-        [60, 0],
-        [75, 0]]
+    # positions = [
+    #     [30, 0],
+    #     [45, 0],
+    #     [60, 0],
+    #     [75, 0]]
+    positions = [[0,0]]
     broadcasts = [[80,0,0],[193,0,0]]
     TX = NEQTime(*time)
     for bx in broadcasts:
@@ -191,3 +192,4 @@ def Task8():
     print NEQ.vTEC_ratio()
 
 # Task4()
+Task1()

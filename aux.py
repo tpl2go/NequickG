@@ -88,6 +88,9 @@ def NeqClipExp(dPower):
     :param dPower: Power for exponential function [double]
     :return:
     """
+
+    assert(not np.any(np.isnan(dPower)))
+
     mask1 = np.logical_and(dPower < 80, dPower < 80)
     mask2 = dPower > 80
     mask3 = dPower < -80
@@ -100,6 +103,7 @@ def NeqClipExp(dPower):
             out = 5.5406 * 10 ** 34
         elif mask3:
             out = 1.8049 * 10 ** -35
+
 
     assert( not np.any(out < 0))
     return out
