@@ -94,7 +94,7 @@ class NequickG_global:
         GN2 = self.__integrate2(hh, latlat, lonlon, delta)  # there is repeated work here. can be optimized
 
         count = 1
-        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 20:
 
             GN1 = GN2
 
@@ -107,6 +107,9 @@ class NequickG_global:
             GN2 = self.__integrate2(hh, latlat, lonlon, delta)
 
             count += 1
+
+        if count == 20:
+            print "Integration2 did not converge"
 
         return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
@@ -157,11 +160,14 @@ class NequickG_global:
         GN2 = self.__integrate(s1, s2, n, roughpaper)  # there is repeated work here. can be optimized
 
         count = 1
-        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 20:
             GN1 = GN2
             n *= 2
             GN2 = self.__integrate(s1, s2, n, roughpaper)
             count += 1
+
+        if count == 20:
+            print "Integration did not converge"
 
         return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
@@ -276,11 +282,14 @@ class NequickG:
         GN2 = self.__single_quad(h1, h2, n)  # there is repeated work here. can be optimized
 
         count = 1
-        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 5:
+        while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 20:
             GN1 = GN2
             n *= 2
             GN2 = self.__single_quad(h1, h2, n)
             count += 1
+
+        if count == 20:
+            print "vTEC integration did not converge"
 
         return (GN2 + (GN2 - GN1) / 15.0)
 
@@ -670,16 +679,13 @@ class NequickG_parameters:
         dlatp = 5
         dlngp = 10
 
-        if (latitude > 90) or (latitude < -90):
-            mu = 90
-            return mu
+        if (latitude > 90):
+            self.modip = 90
+            return 90
+        elif (latitude < -90):
+            self.modip = -90
+            return -90
 
-        l = int((longitude + 180) / 10) - 2
-        if l < 0:
-            l = l + 36
-        if l > 33:
-            l = l - 36
-        assert (type(l) == int)
 
         lng1 = (longitude + 180.0) / dlngp
         sj = int(lng1) - 2
@@ -693,7 +699,6 @@ class NequickG_parameters:
         lat1 = (latitude + 90.0) / dlatp + 1
         si = int(lat1 - 1e-6) - 2
         di = lat1 - si - 2
-
 
         z = []
         for k in range(1,5):
@@ -1248,18 +1253,6 @@ class NequickG_bottomside:
         alphaF2 = diffF2 / thickF2
         alphaF1 = diffF1 / thickF1
         alphaE = diffE / thickE
-
-        assert( not np.any(np.isnan(alphaE)))
-        assert( not np.any(np.isnan(alphaF1)))
-        assert( not np.any(np.isnan(alphaF2)))
-
-        try:
-            assert( not np.any(alphaE > 80))
-            assert( not np.any(alphaF1 > 80))
-            assert( not np.any(alphaF2 > 80))
-
-        except AssertionError:
-            print alphaE, alphaF1, alphaF2
 
         EpstF2[np.abs(alphaF2) > 25] = 0
         EpstF1[np.abs(alphaF1) > 25] = 0

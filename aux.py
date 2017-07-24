@@ -36,7 +36,7 @@ def cartesian2coord(x, y, z):
 
 def interpolate(z1, z2, z3, z4, x):
     """
-    Third Order Interpolation function
+    Third Order Lagrange Interpolation function
     Reference: Section 2.5.7.1 of GSA's "Ionospheric Correction
     Algorithm for Galileo Single Frequency Users"
 
@@ -47,8 +47,8 @@ def interpolate(z1, z2, z3, z4, x):
     :param x:
     :return:
     """
-    if abs(2 * x) < 10 ** -10:
-        return z2
+    # if abs(2 * x) < 10 ** -10:
+    #     return z2
 
     delta = 2 * x - 1
     g1 = z3 + z2
