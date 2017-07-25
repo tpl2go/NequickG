@@ -49,7 +49,8 @@ class NequickG_global:
                 NEQ, para = self.get_Nequick_local(pos)
                 out = [lons[i], lats[i], hs[i]]
                 out = out + [para.foE, para.foF1, para.foF2]
-                out = out + NEQ.electrondensity(hs[i])
+                out.append( NEQ.electrondensity(hs[i]))
+
                 writer.writerow(out)
 
     def _segment2(self, n, ray):
@@ -121,7 +122,7 @@ class NequickG_global:
 
         return GN
 
-    def map(self, lat1, lon1, lat2, lon2, resolution=40):
+    def map_vTEC(self, lat1, lon1, lat2, lon2, resolution=40):
         lats = np.linspace(lat1, lat2, resolution)
         lons = np.linspace(lon1, lon2, resolution)
 
@@ -131,15 +132,31 @@ class NequickG_global:
 
         for i in range(resolution):
             for j in range(resolution):
-                lat = lats[i]
-                lon = lons[j]
-
-                pos = Position(lat, lon)
+                pos = Position(latlat[i, j], lonlon[i, j])
                 neq, para = self.get_Nequick_local(pos)
-                vtec[i, j] = neq.vTEC(100, 1000)
-                # is this [i j] or [j i]
+                vtec[i, j] = neq.vTEC(100, 20000)
+
         return latlat, lonlon, vtec
 
+    def map_parameters(self,attrs, lat1, lon1, lat2, lon2, resolution=40):
+
+        lats = np.linspace(lat1, lat2, resolution)
+        lons = np.linspace(lon1, lon2, resolution)
+
+        lonlon, latlat = np.meshgrid(lons, lats)
+
+        outs = []
+        for i in range(len(attrs)):
+            outs.append(np.empty([resolution, resolution]))
+        for i in range(resolution):
+            for j in range(resolution):
+                pos = Position(latlat[i, j], lonlon[i, j])
+                neq, para = self.get_Nequick_local(pos)
+                for k in range(len(attrs)):
+                    out = outs[k]
+                    out[i, j] = getattr(para, attrs[k])
+
+        return latlat, lonlon, outs
 
 
 class Ray:

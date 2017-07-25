@@ -537,6 +537,9 @@ class NequickG_parameters:
         foE = self.foE
         foF2 = self.foF2
 
+        # In the day, foF1 = 1.4foE. In the night time, foF1 = 0
+        # use NeqJoin for day-night transition
+        # 1000.0 seems arbitrary
         foF1 = NeqJoin(1.4 * foE, 0, 1000.0, foE - 2)
         foF1 = NeqJoin(0, foF1, 1000.0, foE - foF1)
         foF1 = NeqJoin(foF1, 0.85 * foF1, 60.0, 0.85 * foF2 - foF1)

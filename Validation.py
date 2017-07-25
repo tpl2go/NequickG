@@ -96,16 +96,16 @@ def lowsolaractivity():
                 print row[9]
                 writer.writerow(row)
 
-lowsolaractivity()
+# lowsolaractivity()
 
-# def table():
-#     BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
-#     time = NEQTime(12,12)
-#     NEQ_global = NequickG_global(time, BX)
-#     NEQ_global.ray(111, 34, 3, 1000, 45, 6)
+def table():
+    BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
+    time = NEQTime(12,12)
+    NEQ_global = NequickG_global(time, BX)
+    NEQ_global.table(111, 34, 3, 1000, 45, 6)
 
 
 
-#
-#
-# single_case()
+
+
+table()

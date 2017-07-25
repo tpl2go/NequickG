@@ -53,7 +53,7 @@ def Task2():
     BX = GalileoBroadcast(80,0,0)
     NEQ_global = NequickG_global(TX, BX)
     NEQ, Para = NEQ_global.get_Nequick_local(RX)
-    print NEQ.vTEC(100,1000)
+    print NEQ.map_vTEC(100, 1000)
 
 
 
@@ -69,7 +69,7 @@ def Task3():
             RX = Position(*pos)
             NEQ_global = NequickG_global(TX, BX)
             NEQ, para = NEQ_global.get_Nequick_local(RX)
-            vTEC_lon.append(NEQ.vTEC(100,1000))
+            vTEC_lon.append(NEQ.map_vTEC(100, 1000))
         vTEC.append(vTEC_lon)
     plt.figure()
     plt.contour(vTEC)
@@ -104,6 +104,7 @@ def Task4():
     # cs = mapp.contour(xx, yy, vTEC, linewidths=1.5, latlon = True)
     plt.title('vertical Total Electron Count over Toulouse')
     plt.show()
+    plt.savefig('maps/' + 'vTEC' +'.png')
 
 def Task4_1():
 
@@ -121,21 +122,50 @@ def Task4_1():
     BX = GalileoBroadcast(80,0,0)
     TX = NEQTime(10, 12)
     NEQ_global = NequickG_global(TX, BX)
-    latlat, lonlon, vTEC = NEQ_global.map(-60, -150, 60, 150, resolution=150)
-    # lonlon, latlat = np.meshgrid(np.linspace(-60,60, 100), np.linspace(-60,60, 100))
+    latlat, lonlon, vTEC = NEQ_global.map_vTEC(-60, -150, 60, 150, resolution=150)
 
-    # vTEC = np.ones([100,100])
-    # vTEC = vTEC * np.arange(100)
     xx, yy = mapp(lonlon, latlat)
-    # xx, yy = mapp(latlat, lonlon)
 
     cs = mapp.contour(xx, yy, vTEC, linewidths=1.5)
-    # cs = mapp.contour(xx, yy, vTEC, linewidths=1.5, latlon = True)
-    plt.title('vertical Total Electron Count over Toulouse')
+    plt.title('vertical Total Electron Content')
     plt.show()
 
-Task4_1()
+# Task4_1()
 
+def Task4_2():
+    attrs = ['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
+             'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
+             ,'A1', 'A2', 'A3', 'k']
+
+
+    BX = GalileoBroadcast(80,0,0)
+    TX = NEQTime(10, 12)
+    NEQ_global = NequickG_global(TX, BX)
+
+    latlat, lonlon, outs = NEQ_global.map_parameters(attrs, -70, -180, 70, 180, resolution=150)
+
+
+    for i in range(len(outs)):
+        plt.figure()
+        mapp = Basemap(projection='cyl',llcrnrlat= -90.,urcrnrlat= 90.,\
+                  resolution='c',  llcrnrlon=-180.,urcrnrlon=180.)
+        #-- draw coastlines, state and country boundaries, edge of map
+        mapp.drawcoastlines()
+        mapp.drawstates()
+        mapp.drawcountries()
+
+        #-- create and draw meridians and parallels grid lines
+        mapp.drawparallels(np.arange( -90., 90.,30.),labels=[1,0,0,0],fontsize=10)
+        mapp.drawmeridians(np.arange(-180.,180.,30.),labels=[0,0,0,1],fontsize=10)
+        xx, yy = mapp(lonlon, latlat)
+
+        cs = mapp.contour(xx, yy, outs[i], linewidths=1.5)
+
+        plt.title(attrs[i])
+        plt.savefig('maps/' + attrs[i]+'.png')
+        plt.close()
+
+Task4_2()
 
 def Task5():
     #test sTEC
@@ -193,4 +223,4 @@ def Task8():
     print NEQ.vTEC_ratio()
 
 # Task4()
-Task1()
+# Task1()
