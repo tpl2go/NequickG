@@ -269,7 +269,6 @@ class NequickG_parameters:
         assert Az >= 0
 
         self.Az = Az
-        self.Az = 244.9
         return self.Az
 
     def __effective_sunspot_number__(self):
@@ -280,8 +279,7 @@ class NequickG_parameters:
         :return:
 
         """
-        # self.Azr = np.sqrt(167273 + (self.Az - 63.7) * 1123.6) - 408.99
-        self.Azr = 200
+        self.Azr = np.sqrt(167273 + (self.Az - 63.7) * 1123.6) - 408.99
         return self.Azr
 
     def __solar_declination__(self, ):
@@ -349,7 +347,9 @@ class NequickG_parameters:
         self.chi_eff = NeqJoin(90 - 0.24 * NeqClipExp(20 - 0.2 * self.chi), self.chi, 12, self.chi - chi0)
         return self.chi_eff
 
-
+    def get_stage1para(self):
+        name = ['modip', 'effective_ionization', 'effective_sunspot_number', 'solarcosine', 'solarsine', 'solar_zenith', 'effective_solar_zenith']
+        return name, [self.modip, self.Az, self.Azr, self.solarcosine, self.solarsine, self.chi, self.chi_eff]
     ############################ STAGE 2####################################
     def ELayer(self):
         """
@@ -555,6 +555,9 @@ class NequickG_parameters:
 
         return foF1, NmF1
 
+    def get_stage2para(self):
+        name = ['foE', 'foF1', 'foF2', 'M3000F2']
+        return name , [self.foE, self.foF1, self.foF2, self.M3000F2]
     ############################ STAGE 3####################################
     def get_hmE(self):
         self.hmE = 120
