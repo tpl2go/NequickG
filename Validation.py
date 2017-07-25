@@ -1,4 +1,5 @@
-from NequickG import NequickG, NequickG_global, Position, GalileoBroadcast, NEQTime
+from NequickG import NequickG, Position, GalileoBroadcast, NEQTime
+from NequickG_global import NequickG_global
 import csv
 # High Solar Activity
 
@@ -94,5 +95,14 @@ def lowsolaractivity():
 
 # lowsolaractivity()
 
-
-
+# def single_case():
+#     BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
+#     time = NEQTime(12,12)
+#     NEQ_global = NequickG_global(time, BX)
+#     NEQ_global.ray(111, 34, 3, 1000, 45, 6)
+#
+#
+#
+#
+#
+# single_case()

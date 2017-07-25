@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.basemap import Basemap
-from NequickG import NEQTime, Position, GalileoBroadcast, NequickG, NequickG_global
+from NequickG import NEQTime, Position, GalileoBroadcast, NequickG
+from  NequickG_global import  NequickG_global
 
 
 def Task1():
