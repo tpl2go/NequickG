@@ -331,7 +331,7 @@ class NequickG_parameters:
         coschi = np.sin(latitude * np.pi / 180) * solarsine + np.cos(
             latitude * np.pi / 180) * self.solarcosine * np.cos(
             np.pi / 12 * (12 - LT))
-        self.chi = np.arctan2(np.sqrt(1 - coschi ** 2), coschi)
+        self.chi = np.arctan2(np.sqrt(1 - coschi ** 2), coschi) * 180 / np.pi
 
         return self.chi
 
@@ -488,6 +488,7 @@ class NequickG_parameters:
         # Compute foF2
         # Order 0 term
         foF2_1 = np.sum(CF2[:12] * M)
+
         # Legendre grades
         Q = np.array([12, 12, 9, 5, 2, 1, 1, 1, 1])
         K = np.empty(9, dtype=np.int)
@@ -501,7 +502,27 @@ class NequickG_parameters:
             for j in range(Q[i]):
                 foF2_n[i] += CF2[K[i] + 2 * j] * C[i] * M[j] * P[i]
                 foF2_n[i] += CF2[K[i] + 2 * j + 1] * S[i] * M[j] * P[i]
+        foF2 = np.sum(foF2_n)
         self.foF2 = np.sum(foF2_n)
+
+
+        # foF2_redo = 0
+        # DR = np.pi/180
+        # nq = [11,11,8,4,1,0,0,0,0]
+        # RR = np.empty(9, dtype=np.int)
+        # RR[0] = -12
+        # for i in range(1, 9):
+        #     RR[i] = RR[i - 1] + 2 * nq[i - 1] + 2
+        # for i in range(12):
+        #     foF2_redo += CF2[i] * np.sin(self.modip * DR) ** i
+        # for i in range(1,9):
+        #     for j in range(nq[i] + 1):
+        #         print RR[i]+2*j
+        #         print RR[i]+2*j + 1
+        #         foF2_redo += np.sin(self.modip* DR)**j * np.cos(latitude*DR)**i * (CF2[RR[i]+2*j] * np.cos(i*longitude *DR) + CF2[RR[i]+2*j + 1] * np.sin(i*longitude *DR))
+
+        # self.foF2 = foF2_redo
+
 
         # compute 0 order term
         M3000F2_1 = np.sum(Cm3[:7] * M[:7])
@@ -517,8 +538,8 @@ class NequickG_parameters:
 
         for i in range(1, 7):
             for j in range(R[i]):
-                M3000F2_n[i] += Cm3[H[i] + 2 * j] * C[i] * (M[j] * P[j])
-                M3000F2_n[i] += Cm3[H[i] + 2 * j + 1] * S[i] * (M[j] * P[j])
+                M3000F2_n[i] += Cm3[H[i] + 2 * j] * C[i] * (M[j] * P[i])
+                M3000F2_n[i] += Cm3[H[i] + 2 * j + 1] * S[i] * (M[j] * P[i])
 
 
         self.M3000F2 = np.sum(M3000F2_n)
@@ -540,6 +561,7 @@ class NequickG_parameters:
         # In the day, foF1 = 1.4foE. In the night time, foF1 = 0
         # use NeqJoin for day-night transition
         # 1000.0 seems arbitrary
+        # why is foE = 2 a threshold for day -night boundary?
         foF1 = NeqJoin(1.4 * foE, 0, 1000.0, foE - 2)
         foF1 = NeqJoin(0, foF1, 1000.0, foE - foF1)
         foF1 = NeqJoin(foF1, 0.85 * foF1, 60.0, 0.85 * foF2 - foF1)

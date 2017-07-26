@@ -104,7 +104,7 @@ def Task4():
     # cs = mapp.contour(xx, yy, vTEC, linewidths=1.5, latlon = True)
     plt.title('vertical Total Electron Count over Toulouse')
     plt.show()
-    plt.savefig('maps/' + 'vTEC' +'.png')
+
 
 def Task4_1():
 
@@ -119,8 +119,8 @@ def Task4_1():
     mapp.drawparallels(np.arange( -90., 90.,30.),labels=[1,0,0,0],fontsize=10)
     mapp.drawmeridians(np.arange(-180.,180.,30.),labels=[0,0,0,1],fontsize=10)
 
-    BX = GalileoBroadcast(80,0,0)
-    TX = NEQTime(10, 12)
+    BX = GalileoBroadcast(200,0,0)
+    TX = NEQTime(4, 20)
     NEQ_global = NequickG_global(TX, BX)
     latlat, lonlon, vTEC = NEQ_global.map_vTEC(-60, -150, 60, 150, resolution=150)
 
@@ -128,7 +128,7 @@ def Task4_1():
 
     cs = mapp.contour(xx, yy, vTEC, linewidths=1.5)
     plt.title('vertical Total Electron Content')
-    plt.show()
+    plt.savefig('maps/' + 'vTEC' +'.png')
 
 # Task4_1()
 
@@ -138,7 +138,7 @@ def Task4_2():
              ,'A1', 'A2', 'A3', 'k']
 
 
-    BX = GalileoBroadcast(80,0,0)
+    BX = GalileoBroadcast(200,0,0)
     TX = NEQTime(10, 12)
     NEQ_global = NequickG_global(TX, BX)
 
@@ -162,6 +162,7 @@ def Task4_2():
         cs = mapp.contour(xx, yy, outs[i], linewidths=1.5)
 
         plt.title(attrs[i])
+        plt.colorbar()
         plt.savefig('maps/' + attrs[i]+'.png')
         plt.close()
 

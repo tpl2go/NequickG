@@ -96,7 +96,7 @@ def lowsolaractivity():
                 print row[9]
                 writer.writerow(row)
 
-# lowsolaractivity()
+lowsolaractivity()
 
 def table():
     BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
@@ -108,4 +108,4 @@ def table():
 
 
 
-table()
+# table()
