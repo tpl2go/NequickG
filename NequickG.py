@@ -267,7 +267,6 @@ class NequickG_parameters:
         # Reference Section 3.3
         assert Az <= 400
         assert Az >= 0
-
         self.Az = Az
         return self.Az
 
@@ -280,6 +279,8 @@ class NequickG_parameters:
 
         """
         self.Azr = np.sqrt(167273 + (self.Az - 63.7) * 1123.6) - 408.99
+        # assert(not np.isnan(self.Azr))
+        # assert(self.Azr > 0)
         return self.Azr
 
     def __solar_declination__(self, ):
@@ -382,6 +383,14 @@ class NequickG_parameters:
         self.foE = np.sqrt((1.112 - 0.019 * seasp) ** 2 * np.sqrt(Az) * np.cos(chi_eff * np.pi / 180) ** 0.6 + 0.49)
         self.NmE = NeqCriticalFreqToNe(self.foE)
 
+
+        # #checking
+        # chin = NeqJoin(90 - 0.24*NeqClipExp(20-0.2*self.chi), self.chi, 12, self.chi - 86.23292796211615)
+        # sfac = (1.112 - 0.019 * seasp) * np.sqrt(np.sqrt(self.Az))
+        # fa = sfac * NeqClipExp(np.log(np.cos(chin*np.pi/180)) * 0.3)
+        # foE = np.sqrt(fa * fa + 0.49)
+        #
+        # print foE - self.foE
         return self.foE, self.NmE
 
     def __readccirXXfiles__(self):
@@ -541,9 +550,26 @@ class NequickG_parameters:
                 M3000F2_n[i] += Cm3[H[i] + 2 * j] * C[i] * (M[j] * P[i])
                 M3000F2_n[i] += Cm3[H[i] + 2 * j + 1] * S[i] * (M[j] * P[i])
 
-
+        M3000F2 = np.sum(M3000F2_n)
         self.M3000F2 = np.sum(M3000F2_n)
 
+        # M3000_redo = 0
+        # DR = np.pi/180
+        # nq = [6,7,5,2,1,0,0]
+        # RR = np.empty(7, dtype=np.int)
+        # RR[0] = -7
+        # for i in range(1, 7):
+        #     RR[i] = RR[i - 1] + 2 * nq[i - 1] + 2
+        # for i in range(7):
+        #     M3000_redo += Cm3[i] * np.sin(self.modip * DR) ** i
+        # for i in range(1,7):
+        #     for j in range(nq[i] + 1):
+        #         print RR[i]+2*j
+        #         print RR[i]+2*j + 1
+        #         M3000_redo += np.sin(self.modip* DR)**j * np.cos(latitude*DR)**i * (Cm3[RR[i]+2*j] * np.cos(i*longitude *DR) + Cm3[RR[i]+2*j + 1] * np.sin(i*longitude *DR))
+        #
+        #
+        # print M3000_redo
         self.NmF2 = NeqCriticalFreqToNe(self.foF2)
 
         return self.foF2, self.M3000F2, self.NmF2
@@ -613,7 +639,7 @@ class NequickG_parameters:
         M3000F2 = self.M3000F2
         numerator = 1490 * M3000F2 * np.sqrt((0.0196 * M3000F2 ** 2 + 1) / (1.2967 * M3000F2 ** 2 - 1))
         assert (not np.any(np.isnan(numerator)))
-        if foE < 10 ** -30:
+        if foE < 10 ** -30: # avoid divide by zero
             deltaM = - 0.012
         else:
             r = float(foF2) / foE
@@ -621,7 +647,7 @@ class NequickG_parameters:
             bottom = np.exp(20 * (r - 1.75)) + 1.0
             rho = top / bottom
             deltaM = 0.253 / (rho - 1.215) - 0.012
-
+            assert rho > 1.73
         denominator = M3000F2 + deltaM
 
         self.hmF2 = numerator / denominator - 176
@@ -714,13 +740,14 @@ class NequickG_parameters:
         else:
             A3a = 4.0 * self.NmE
             for i in range(5):
-                A2a = 4.0 * (
-                    self.NmF1 - epstein(self.A1, self.hmF2, self.B2bot, self.hmF1) - epstein(A3a, self.hmE, self.BEtop,
-                                                                                             self.hmF1))
+                A2a = 4.0 * (self.NmF1 -
+                             epstein(self.A1, self.hmF2, self.B2bot, self.hmF1) -
+                             epstein(A3a, self.hmE, self.BEtop, self.hmF1))
+
                 A2a = NeqJoin(A2a, 0.8 * self.NmF1, 1, A2a - 0.8 * self.NmF1)
-                A3a = 4.0 * (
-                    self.NmE - epstein(A2a, self.hmF1, self.B1bot, self.hmE) - epstein(self.A1, self.hmF2, self.B2bot,
-                                                                                       self.hmE))
+                A3a = 4.0 * (self.NmE -
+                             epstein(A2a, self.hmF1, self.B1bot, self.hmE) -
+                             epstein(self.A1, self.hmF2, self.B2bot, self.hmE))
             self.A2 = A2a
             self.A3 = NeqJoin(A3a, 0.05, 60.0, A3a - 0.005)
         return self.A2, self.A3
@@ -742,8 +769,12 @@ class NequickG_parameters:
             ka = -7.77 + 0.097 * (self.hmF2 / self.B2bot) ** 2 + 0.153 * self.NmF2
         else:
             raise ValueError("Invalid Month")
-        kb = (ka * np.exp(ka - 2) + 2) / (1 + np.exp(ka - 2))
-        self.k = (8 * np.exp(kb - 8) + kb) / (1 + np.exp(kb - 8))
+        # kb = (ka * np.exp(ka - 2) + 2) / (1 + np.exp(ka - 2))
+        # self.k = (8 * np.exp(kb - 8) + kb) / (1 + np.exp(kb - 8))
+        kb = NeqJoin(ka,2,1,ka - 2.0)
+        kb = NeqJoin(8, kb, 1, kb - 8)
+
+        self.k = kb
         return self.k
 
     def get_H0(self):
@@ -830,11 +861,13 @@ class NequickG_bottomside:
 
         dsF2 = (1 - np.exp(alphaF2)) / (thickF2 * (1 + np.exp(alphaF2)))
         dsF2[np.abs(alphaF2) > 25] = 0
+        assert( not np.any(np.isnan(dsF2)))
         dsF1 = (1 - np.exp(alphaF1)) / (thickF1 * (1 + np.exp(alphaF1)))
         dsF1[np.abs(alphaF1) > 25] = 0
+        assert( not np.any(np.isnan(dsF1)))
         dsE = (1 - np.exp(alphaE)) / (thickE * (1 + np.exp(alphaE)))
         dsE[np.abs(alphaE) > 25] = 0
-
+        assert( not np.any(np.isnan(dsE)))
         BC = 1 - 10 * (EpstF2 * dsF2 + EpstF1 * dsF1 + EpstE * dsE) / S
         z = (h - 100) / 10.0
 
