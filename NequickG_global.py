@@ -111,6 +111,15 @@ class NequickG_global:
 
         return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
+    def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2):
+        ray = Ray(h1, lat1, lon1, h2, lat2, lon2)
+        ht, latt, lont = ray.height2coords(1000)
+        stec1 = self.sTEC(h1, lat1, lon1, ht, latt, lont, tolerance=0.001)
+        stec2 = self.sTEC(ht, latt, lont, h2, lat2, lon2, tolerance=0.01)
+
+        return stec1 + stec2
+
+
     def _integrate(self, hh, lats, lons, delta):
         electrondensity = np.empty(len(hh))
 
@@ -119,6 +128,7 @@ class NequickG_global:
             NEQ, para = self.get_Nequick_local(pos)
             electrondensity[i] = NEQ.electrondensity(hh[i])
         GN = delta / 2.0 * np.sum(electrondensity)
+        # print para.Azr, para.Azr_unclip
 
         return GN
 
@@ -163,10 +173,12 @@ class Ray:
     def __init__(self, h1, lat1, lon1, h2, lat2, lon2):
         "By convention, point 1 is at a lower height"
         self.ob_h = h1
+        self.ob_radius = 6371.2 + h1
         self.ob_lat = lat1
         self.ob_lon = lon1
 
         self.sat_h = h2
+        self.sat_radius = 6371.2 + h2
         self.sat_lat = lat2
         self.sat_lon = lon2
 
@@ -185,8 +197,15 @@ class Ray:
         self.p_azimuth = self.perigee_azimuth()
 
     def isvalid(self):
-        # TODO: implement a method to test if ray passes through the earth
-        pass
+        if self.p_radius > self.ob_radius and self.p_radius < self.sat_radius:
+            r = self.p_radius
+        else:
+            r = self.ob_radius
+
+        if r < 6371.2:
+            return False
+        else:
+            return True
 
     def linspace(self, n):
         xs = np.linspace(self.ob_x, self.sat_x, n)
@@ -306,6 +325,15 @@ class Ray:
         lons = np.arctan2(sin_lons, cos_lons) * 180 / np.pi + lonp
 
         return hs, lats, lons
+
+    def height2coords(self,h):
+        h = np.array(h)
+        assert (np.all(h < self.sat_h))
+        assert (np.all(h > self.ob_h))
+        s = np.sqrt( (6371.2 + h)** 2 + self.p_radius**2 )
+
+        return self.perigeedistance2coords(s)
+
 
 def gaussquadrature2_segment(n, x1, x2):
     """returns array of x points to sample for second order Gauss Lagrange quadrature"""

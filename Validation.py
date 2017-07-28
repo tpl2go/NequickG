@@ -28,9 +28,10 @@ def highsolaractivity():
                 time = NEQTime(mth, UT)
                 NEQ_global = NequickG_global(time, BX)
 
-                row.append (NEQ_global.sTEC(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
+                row.append (NEQ_global.sTEC2(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
                 print row[9]
                 writer.writerow(row)
+# print "high solar activity"
 # highsolaractivity()
 
 # Medium solar activity
@@ -59,13 +60,13 @@ def mediumsolaractivity():
                 time = NEQTime(mth, UT)
                 NEQ_global = NequickG_global(time, BX)
 
-                row.append (NEQ_global.sTEC(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
+                row.append (NEQ_global.sTEC2(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
                 print row[9]
                 writer.writerow(row)
-
+# print "medium solar activity"
 # mediumsolaractivity()
 
-# Medium solar activity
+# Low solar activity
 def lowsolaractivity():
     BX = GalileoBroadcast(2.580271, 0.127628236, 0.0252748384) # Low solar activity
 
@@ -92,10 +93,11 @@ def lowsolaractivity():
                 time = NEQTime(mth, UT)
                 NEQ_global = NequickG_global(time, BX)
 
-                row.append (NEQ_global.sTEC(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
+                row.append (NEQ_global.sTEC2(h1, lat1, lon1, h2, lat2, lon2) / 10**16)
                 print row[9]
                 writer.writerow(row)
 
+print "low solar activity"
 lowsolaractivity()
 
 def table():

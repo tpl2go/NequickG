@@ -16,21 +16,21 @@ def coord2cartesian(r, lat, lon):
     return x, y, z
 
 def cartesian2coord(x, y, z):
-        """
+    """
 
-        :param x: [km]
-        :param y: [km]
-        :param z: [km]
-        :return:
-        """
-        r = np.sqrt(x**2 + y**2 + z**2)
+    :param x: [km]
+    :param y: [km]
+    :param z: [km]
+    :return:
+    """
+    r = np.sqrt(x**2 + y**2 + z**2)
 
-        xy = np.sqrt(x**2 + y**2)
+    xy = np.sqrt(x**2 + y**2)
 
-        lat = np.arctan(z / xy) * 180 / np.pi
-        lon = np.arctan2(y, x) * 180 / np.pi
+    lat = np.arctan(z / xy) * 180 / np.pi
+    lon = np.arctan2(y, x) * 180 / np.pi
 
-        return r, lat, lon
+    return r, lat, lon
 
 
 
@@ -63,6 +63,36 @@ def interpolate(z1, z2, z3, z4, x):
 
     return 1 / 16.0 * (a0 + a1 * delta + a2 * delta ** 2 + a3 * delta ** 3)
 
+def interpolate2d(Z, x, y):
+    assert (np.shape(Z) == (4,4))
+
+    deltax = 2 * x - 1
+    deltay = 2 * y - 1
+    # Interpolate horizontally first
+
+    G1 = Z[2,:] + Z[1,:]
+    G2 = Z[2,:] - Z[1,:]
+    G3 = Z[3,:] + Z[0,:]
+    G4 = (Z[3,:] - Z[0,:]) / 3.0
+
+    A0 = 9 * G1 - G3
+    A1 = 9 * G2 - G4
+    A2 = G3 - G1
+    A3 = G4 - G2
+
+    z = 1 / 16.0 * (A0 + A1 * deltay + A2 * deltay ** 2 + A3 * deltay ** 3)
+
+    g1 = z[2] + z[1]
+    g2 = z[2] - z[1]
+    g3 = z[3] + z[0]
+    g4 = (z[3] - z[0]) / 3.0
+
+    a0 = 9 * g1 - g3
+    a1 = 9 * g2 - g4
+    a2 = g3 - g1
+    a3 = g4 - g2
+
+    return 1 / 16.0 * (a0 + a1 * deltax + a2 * deltax ** 2 + a3 * deltax ** 3)
 
 def epstein(peak_amp, peak_height, thickness, H):
     return peak_amp * NeqClipExp((H - peak_height) / thickness) / np.power((1 + NeqClipExp((H - peak_height) / thickness)), 2)

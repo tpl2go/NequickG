@@ -203,45 +203,72 @@ class NequickG_parameters:
 
         latitude = self.Position.latitude
         longitude = self.Position.longitude
-        stModip = CCIR_MoDIP.modip.stModip
 
-        lngp = 36
-        dlatp = 5
-        dlngp = 10
+        sq , lon_excess, lat_excess= self.Square(latitude, longitude)
+        mu2 = self.interpolate2d(sq, lon_excess, lat_excess)
+        self.modip = mu2
 
-        if (latitude > 90):
-            self.modip = 90
-            return 90
-        elif (latitude < -90):
-            self.modip = -90
-            return -90
+        return self.modip
 
+    def Square(self, latitude, longitude):
+        # what if longitude is [0,360]
+        # what if longitude is [-180, 180]
+        num_division = 36
+        lon_division = 10.0
+        lat_division = 5.0
 
-        lng1 = (longitude + 180.0) / dlngp
-        sj = int(lng1) - 2
-        dj= lng1 - int(lng1)
+        # Longitude
+        lon = (longitude + 180)/lon_division
+        lon_start = int(lon) - 2 # range : -2 to 34 or 16 to 52 or -20 to 16
+        lon_excess = lon - int(lon)
 
-        if (sj < 0):
-            sj = sj + lngp
-        if (sj > (lngp - 3)):
-            sj = sj - lngp
+        # max permissible lon_start is 34
+        # min permissible lon_start is 0
+        # so this hack is needed
+        if (lon_start < 0):
+            lon_start = lon_start + num_division
+        if (lon_start > (num_division - 3)):
+            lon_start = lon_start - num_division
 
-        lat1 = (latitude + 90.0) / dlatp + 1
-        si = int(lat1 - 1e-6) - 2
-        di = lat1 - si - 2
+        lat = (latitude + 90.0) / lat_division + 1
+        lat_start = int(lat - 1e-6) - 2 # why?
+        lat_excess = lat - lat_start - 2
 
-        z = []
-        for k in range(1,5):
-            z_row = []
-            for j in range(1,5):
-                z_jk = stModip[si + j][sj+k + 1]
-                z_row.append(z_jk)
-            z_row.append(di)
-            z.append(interpolate(*z_row))
-        z.append(dj)
-        mu =  interpolate(*z)
-        self.modip = mu
-        return mu
+        stModip = np.array(CCIR_MoDIP.modip.stModip)
+        square =stModip[lat_start+1:lat_start+5,lon_start+2:lon_start+6]
+        return square, lon_excess, lat_excess
+
+    def interpolate2d(self, Z, x, y):
+        assert (np.shape(Z) == (4,4))
+
+        deltax = 2 * x - 1
+        deltay = 2 * y - 1
+        # Interpolate horizontally first
+
+        G1 = Z[2,:] + Z[1,:]
+        G2 = Z[2,:] - Z[1,:]
+        G3 = Z[3,:] + Z[0,:]
+        G4 = (Z[3,:] - Z[0,:]) / 3.0
+
+        A0 = 9 * G1 - G3
+        A1 = 9 * G2 - G4
+        A2 = G3 - G1
+        A3 = G4 - G2
+
+        z = 1 / 16.0 * (A0 + A1 * deltay + A2 * deltay ** 2 + A3 * deltay ** 3)
+
+        g1 = z[2] + z[1]
+        g2 = z[2] - z[1]
+        g3 = z[3] + z[0]
+        g4 = (z[3] - z[0]) / 3.0
+
+        a0 = 9 * g1 - g3
+        a1 = 9 * g2 - g4
+        a2 = g3 - g1
+        a3 = g4 - g2
+
+        return 1 / 16.0 * (a0 + a1 * deltax + a2 * deltax ** 2 + a3 * deltax ** 3)
+
 
     def __effective_ionization__(self):
         """
@@ -264,6 +291,10 @@ class NequickG_parameters:
         else:
             Az = ai0 + ai1 * MoDIP + ai2 * MoDIP ** 2
 
+        if Az < 0:
+            Az = 0
+        elif Az > 400:
+            Az = 400
         # Reference Section 3.3
         assert Az <= 400
         assert Az >= 0
@@ -279,8 +310,19 @@ class NequickG_parameters:
 
         """
         self.Azr = np.sqrt(167273 + (self.Az - 63.7) * 1123.6) - 408.99
+
+        # CCIR recommends that Azr saturates at 150
+        # does a negative Azr even make sense??
         # assert(not np.isnan(self.Azr))
+        # self.Azr_unclip = self.Azr
+        # if self.Azr < 0:
+        #     self.Azr = 0
         # assert(self.Azr > 0)
+
+        # assert(self.Azr < 150)
+        # if self.Azr > 150:
+        #     self.Azr = 150
+
         return self.Azr
 
     def __solar_declination__(self, ):
@@ -391,6 +433,9 @@ class NequickG_parameters:
         # foE = np.sqrt(fa * fa + 0.49)
         #
         # print foE - self.foE
+        if (self.foE < 0):
+            print self.foE
+        assert(self.foE >= 0)
         return self.foE, self.NmE
 
     def __readccirXXfiles__(self):
@@ -462,6 +507,25 @@ class NequickG_parameters:
 
         return self.CF2, self.Cm3
 
+    def __geographical_variation__(self, Q):
+        modip = self.modip
+        latitude = self.Position.latitude
+        longitude = self.Position.longitude
+
+        G = []
+        m = np.sin(modip * np.pi / 180)
+        p = np.cos(latitude * np.pi / 180)
+        for i in range(Q[0]):
+            G.append(m**i)
+
+        for i in range(1,len(Q)):
+            for j in range(Q[i]):
+                G.append(m**j * p**i * np.cos(i * longitude * np.pi / 180) )
+                G.append(m**j * p**i * np.sin(i * longitude * np.pi / 180) )
+
+        return np.array(G)
+
+
     def F2Layer(self):
         """
         legendre_calculation
@@ -472,105 +536,25 @@ class NequickG_parameters:
         :param Cm3:
         :return: foF2 [MHz], M(3000)F2
         """
-        modip = self.modip
-        latitude = self.Position.latitude
-        longitude = self.Position.longitude
         CF2 = self.CF2
         Cm3 = self.Cm3
 
-        M = np.ones(12)
-        P = np.ones(9)
-        S = np.ones(9)
-        C = np.ones(9)
+        G = self.__geographical_variation__([12, 12, 9, 5, 2, 1, 1, 1, 1])
+        assert (len(G) == 76)
+        foF2 = np.sum(CF2 * G)
+        self.foF2 = foF2
+        if foF2 < 0:
+            print foF2, self.Azr, self.Az, self.Position.latitude, self.Position.longitude
+        assert (foF2 > 0) # this will fail
 
-        # Compute MODIP coefficients
-        factor = np.sin(modip * np.pi / 180)
-        for i in range(1, 12):
-            M[i] = factor * M[i - 1]
+        G = self.__geographical_variation__([7, 8, 6, 3, 2, 1, 1])
+        assert (len(G) == 49)
+        M3000F2 = np.sum(Cm3 * G)
+        self.M3000F2 = M3000F2
+        assert ( self.M3000F2 > 0)
 
-        # Compute latitude and longitude coefficients
-        factor = np.cos(latitude * np.pi / 180)
-        for i in range(1, 9):
-            P[i] = factor * P[i - 1]
-            S[i] = np.sin(i * longitude * np.pi / 180)
-            C[i] = np.cos(i * longitude * np.pi / 180)
-        # Compute foF2
-        # Order 0 term
-        foF2_1 = np.sum(CF2[:12] * M)
-
-        # Legendre grades
-        Q = np.array([12, 12, 9, 5, 2, 1, 1, 1, 1])
-        K = np.empty(9, dtype=np.int)
-        K[0] = -Q[0]
-        for i in range(1, 9):
-            K[i] = K[i - 1] + 2 * Q[i - 1]  # [-12,  12,  36,  54,  64,  68,  70,  72,  74]
-
-        foF2_n = np.zeros(9)
-        foF2_n[0] = foF2_1
-        for i in range(1, 9):  # check! there might be a bug in the indices
-            for j in range(Q[i]):
-                foF2_n[i] += CF2[K[i] + 2 * j] * C[i] * M[j] * P[i]
-                foF2_n[i] += CF2[K[i] + 2 * j + 1] * S[i] * M[j] * P[i]
-        foF2 = np.sum(foF2_n)
-        self.foF2 = np.sum(foF2_n)
-
-
-        # foF2_redo = 0
-        # DR = np.pi/180
-        # nq = [11,11,8,4,1,0,0,0,0]
-        # RR = np.empty(9, dtype=np.int)
-        # RR[0] = -12
-        # for i in range(1, 9):
-        #     RR[i] = RR[i - 1] + 2 * nq[i - 1] + 2
-        # for i in range(12):
-        #     foF2_redo += CF2[i] * np.sin(self.modip * DR) ** i
-        # for i in range(1,9):
-        #     for j in range(nq[i] + 1):
-        #         print RR[i]+2*j
-        #         print RR[i]+2*j + 1
-        #         foF2_redo += np.sin(self.modip* DR)**j * np.cos(latitude*DR)**i * (CF2[RR[i]+2*j] * np.cos(i*longitude *DR) + CF2[RR[i]+2*j + 1] * np.sin(i*longitude *DR))
-
-        # self.foF2 = foF2_redo
-
-
-        # compute 0 order term
-        M3000F2_1 = np.sum(Cm3[:7] * M[:7])
-
-        R = np.array([7, 8, 6, 3, 2, 1, 1])
-        H = np.empty(7, dtype=np.int)
-        H[0] = -R[0]
-        for i in range(1, 7):
-            H[i] = H[i - 1] + 2 * R[i - 1]  # [ -7,   7,  23,  35,  41,  45,  47])
-
-        M3000F2_n = np.zeros(7)
-        M3000F2_n[0] = M3000F2_1
-
-        for i in range(1, 7):
-            for j in range(R[i]):
-                M3000F2_n[i] += Cm3[H[i] + 2 * j] * C[i] * (M[j] * P[i])
-                M3000F2_n[i] += Cm3[H[i] + 2 * j + 1] * S[i] * (M[j] * P[i])
-
-        M3000F2 = np.sum(M3000F2_n)
-        self.M3000F2 = np.sum(M3000F2_n)
-
-        # M3000_redo = 0
-        # DR = np.pi/180
-        # nq = [6,7,5,2,1,0,0]
-        # RR = np.empty(7, dtype=np.int)
-        # RR[0] = -7
-        # for i in range(1, 7):
-        #     RR[i] = RR[i - 1] + 2 * nq[i - 1] + 2
-        # for i in range(7):
-        #     M3000_redo += Cm3[i] * np.sin(self.modip * DR) ** i
-        # for i in range(1,7):
-        #     for j in range(nq[i] + 1):
-        #         print RR[i]+2*j
-        #         print RR[i]+2*j + 1
-        #         M3000_redo += np.sin(self.modip* DR)**j * np.cos(latitude*DR)**i * (Cm3[RR[i]+2*j] * np.cos(i*longitude *DR) + Cm3[RR[i]+2*j + 1] * np.sin(i*longitude *DR))
-        #
-        #
-        # print M3000_redo
         self.NmF2 = NeqCriticalFreqToNe(self.foF2)
+        assert ( self.NmF2 > 0)
 
         return self.foF2, self.M3000F2, self.NmF2
 
@@ -601,6 +585,8 @@ class NequickG_parameters:
         else:
             NmF1 = NeqCriticalFreqToNe(foF1)
 
+        assert (foF1 >= 0)
+        assert (NmF1 >= 0)
         self.foF1 = foF1
         self.NmF1 = NmF1
 
@@ -798,6 +784,7 @@ class NequickG_bottomside:
         self.hmF1 = hmF1
         self.hmE = hmE
 
+
         self.BEtop = BEtop
         self.BEbot = BEbot
         self.B1top = B1top
@@ -807,6 +794,18 @@ class NequickG_bottomside:
         self.AmpF1 = A2
         self.AmpF2 = A1
         self.AmpE = A3
+
+        assert (hmF2 > 0)
+        assert (hmF1 > 0)
+        assert (hmE > 0)
+        assert (BEtop > 0)
+        assert (BEbot > 0)
+        assert (B1top > 0)
+        assert (B1bot > 0)
+        assert (B2bot > 0)
+        assert (A1 >= 0)
+        assert (A2 >= 0)
+        # assert (A3 >= 0) # this will fail. Why?
 
     def electrondensity(self, h):
         assert not np.any(h > self.hmF2)
@@ -904,6 +903,7 @@ class NequickG_topside:
             else:
                 N = 4 * self.NmF2 * ea * 10 ** 11 / (1 + ea) ** 2
 
+        assert( np.all(N > 0) )
         return N
 
 ########################################################################################
