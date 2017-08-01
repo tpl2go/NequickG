@@ -1,11 +1,102 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import csv
 from mpl_toolkits.basemap import Basemap
 from NequickG import NEQTime, Position, GalileoBroadcast, NequickG
 from  NequickG_global import  NequickG_global
 
-
 def Task1():
+    time = [10, 12]
+
+    TX = NEQTime(4,12)
+
+    BX = GalileoBroadcast(236.831,0,0)
+    RX = Position(40,0)
+    NEQ_global = NequickG_global(TX,BX)
+    NEQ, Para = NEQ_global.get_Nequick_local(RX)
+
+    hmin = 100
+    hmax = 1000
+    hs = np.arange(hmin, hmax)
+
+    N = NEQ.electrondensity(hs)
+    #plt.figure()
+    Azr = Para.Azr
+    label = "Azr" + str(int(Azr)) + " Apr 12UT 40N 0E"
+
+    plt.plot(hs, N, label = label)
+    plt.xlabel('Height(km)')
+    plt.ylabel("Electron Density (m^-3)")
+
+    plt.title("Nequick-G:\n" + " Apr 12UT ")
+    plt.grid()
+    plt.legend()
+    plt.show()
+    # Task1()
+
+def Task1_2():
+
+    TX = NEQTime(4,12)
+
+    BX = GalileoBroadcast(236.831,0,0)
+    RX = Position(40,0)
+    NEQ_global = NequickG_global(TX,BX)
+    NEQ, Para = NEQ_global.get_Nequick_local(RX)
+
+    hmin = 100
+    hmax = 1000
+    hs = np.arange(hmin, hmax)
+
+    N = NEQ.electrondensity(hs)
+    #plt.figure()
+    Azr = Para.Azr
+    label = "Azr" + str(int(Azr)) + " Apr 12UT 40N 0E"
+
+    plt.plot(hs, N, label = label)
+    plt.xlabel('Height(km)')
+    plt.ylabel("Electron Density (m^-3)")
+
+    iri_hs = np.load('iri_hs.npr')
+    iri_ns = np.load('iri_ns.npr')
+    plt.plot(iri_hs, iri_ns * 10**6, label = 'iri')
+
+    plt.title("Nequick-G:\n" + " Apr 12UT ")
+    plt.grid()
+    plt.legend()
+    plt.show()
+
+# Task1_2()
+
+def Task1_3():
+    TX = NEQTime(4,12)
+
+    BX = GalileoBroadcast(193,0,0)
+    RX = Position(0,0)
+    NEQ_global = NequickG_global(TX,BX)
+    NEQ, Para = NEQ_global.get_Nequick_local(RX)
+
+    hmin = 60
+    hmax = 2000
+    hs = np.linspace(hmin, hmax, 195)
+
+    N = NEQ.electrondensity(hs)
+
+    out = np.empty((195,5))
+    out[:,0] = 6371.2 + hs
+    out[:,1] = hs
+    out[:,2] = 40
+    out[:,3] = 0
+    out[:,4] = N
+
+    out = out.tolist()
+
+    with open('NequickG.out', 'w') as f:
+        writer = csv.writer(f, delimiter = ',')
+        writer.writerows(out)
+
+Task1_3()
+
+def Task1_1():
     # TASK 1: Plot NequickG at 8 different locations
 
     time = [10, 12]
@@ -47,14 +138,14 @@ def Task1():
 
 def Task2():
     #test vTEC
-    TX = NEQTime(10,12)
+    TX = NEQTime(4,12)
     RX = Position(40,0)
-    BX = GalileoBroadcast(80,0,0)
+    BX = GalileoBroadcast(236.831,0,0)
     NEQ_global = NequickG_global(TX, BX)
     NEQ, Para = NEQ_global.get_Nequick_local(RX)
-    print NEQ.map_vTEC(100, 1000)
+    print NEQ.vTEC(100, 2000)
 
-
+# Task2()
 
 def Task3():
     # vTEC map
@@ -104,16 +195,12 @@ def Task4():
     plt.title('vertical Total Electron Count over Toulouse')
     plt.show()
 
-def Task4_2():
+def Task4_2(TX, BX, folder):
     attrs = ['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
              'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
-             ,'A1', 'A2', 'A3', 'k']
+             ,'A1', 'A2', 'A3', 'k', 'vTEC']
 
 
-    # BX = GalileoBroadcast(2.580271,0.127628236,0.0252748384)
-    # BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
-    BX = GalileoBroadcast(200,0,0)
-    TX = NEQTime(6, 12)
     NEQ_global = NequickG_global(TX, BX)
 
     latlat, lonlon, outs = NEQ_global.map_parameters(attrs, -70, -180, 70, 180, resolution=150)
@@ -133,33 +220,28 @@ def Task4_2():
         mapp.drawmeridians(np.arange(-180.,180.,30.),labels=[0,0,0,1],fontsize=10)
         xx, yy = mapp(lonlon, latlat)
 
-        cs = mapp.contour(xx, yy, outs[i], linewidths=1.5)
+        cs = mapp.contourf(xx, yy, outs[i], linewidths=1.5)
 
         plt.title(attrs[i])
-        plt.colorbar()
-        plt.savefig('maps/' + attrs[i]+'.png')
+        mapp.colorbar(cs)
+        plt.savefig('maps/' + folder + '/'+ attrs[i]+'.png')
         plt.close()
 
-    mapp = Basemap(projection='cyl',llcrnrlat= -90.,urcrnrlat= 90.,\
-                  resolution='c',  llcrnrlon=-180.,urcrnrlon=180.)
-    #-- draw coastlines, state and country boundaries, edge of map
-    mapp.drawcoastlines()
-    mapp.drawstates()
-    mapp.drawcountries()
 
-    #-- create and draw meridians and parallels grid lines
-    mapp.drawparallels(np.arange( -90., 90.,30.),labels=[1,0,0,0],fontsize=10)
-    mapp.drawmeridians(np.arange(-180.,180.,30.),labels=[0,0,0,1],fontsize=10)
-    latlat, lonlon, vTEC = NEQ_global.map_vTEC(-60, -150, 60, 150, resolution=150)
+def Task4_3():
+    # Low solar activity
+    BX = GalileoBroadcast(2.580271,0.127628236,0.0252748384)
+    # Medium solar activity
+    # BX = GalileoBroadcast(121.129893,0.351254133,0.0134635348)
+    # High solar activity
+    # BX = GalileoBroadcast(236.831641, -0.39362878, 0.00402826613)
+    # R12 = 150
+    #BX = GalileoBroadcast(192.924,0,0)
+    for time in [0, 4, 8, 12, 16, 20]:
+        TX = NEQTime(4, time)
+        Task4_2(TX, BX, 'low/'+ str(time))
 
-    xx, yy = mapp(lonlon, latlat)
-
-    cs = mapp.contour(xx, yy, vTEC, linewidths=1.5)
-    plt.title('vertical Total Electron Content')
-    plt.savefig('maps/' + 'vTEC' +'.png')
-
-
-Task4_2()
+# Task4_3()
 
 def Task5():
     #test sTEC
