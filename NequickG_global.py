@@ -164,7 +164,13 @@ class NequickG_global:
                 neq, para = self.get_Nequick_local(pos)
                 for k in range(len(attrs)):
                     out = outs[k]
-                    out[i, j] = getattr(para, attrs[k])
+                    try:
+                        out[i, j] = getattr(para, attrs[k])
+                    except AttributeError:
+                        if attrs[k] == 'vTEC':
+                            out[i, j] = neq.vTEC(100,20000)
+                        else:
+                            raise AttributeError
 
         return latlat, lonlon, outs
 
@@ -402,18 +408,3 @@ def segment(n, ray):
     hs, lats, lons = ray.perigeedistance2coords(ss)
 
     return hs, lats, lons, delta
-
-if __name__ == "__main__":
-    ray = Ray(0.07811, 82.49, 297.66, 20281.54618, 54.29, 8.23)
-
-    hs, lats, lons, delta = segment(8, ray)
-    print hs
-    print lats
-    print lons
-    print delta
-
-    hs, lats, lons, delta = segment2(8, ray)
-    print hs
-    print lats
-    print lons
-    print delta
