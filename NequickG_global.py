@@ -10,7 +10,8 @@ import spheretrig
 class NequickG_global:
     def __init__(self, time, broadcast):
         """
-
+        Nequick model is fully defined by time and solar activity.
+        But numerical values can only be evaluated by constructing local NequickG model
         :param time: Nequick time object
         :param broadcast: Nequick broadcast object
         """
@@ -18,42 +19,32 @@ class NequickG_global:
         self.broadcast = broadcast
 
     def get_Nequick_local(self, position):
-        # """
-        # :param position: list of nequick position objects
-        # :return: list of nequick models at positions
-        # """
-        # if type(position) == list:
-        #     models = []
-        #     for pos in position:
-        #         Para = NequickG_parameters(pos, self.broadcast, self.time)
-        #         models.append(NequickG(Para))
-        #
-        #     return models
-        # else:
-        #     Para = NequickG_parameters(position, self.broadcast, self.time)
-        #     return NequickG(Para), Para
         Para = NequickG_parameters(position, self.broadcast, self.time)
         return NequickG(Para), Para
 
-    def table(self, h1, lat1, lon1, h2, lat2, lon2):
-        with open('Slant_Ray_Logger.dat', 'w') as f:
+    def slant_table(self, n, ray, path, ex_attr= None):
+        """writes a table of electron density along slant ray. optional paramenters allowed.
+        Function inspired by International Reference Ionosphere model's interface"""
+        with file(path, 'w') as f:
             writer = csv.writer(f, delimiter=',')
-
-            ray= Ray(h1, lat1, lon1, h2, lat2, lon2)
-            n = 200
-
-            hs, lats, lons, delta = self._segment2(n, ray)
-            writer.writerow(['lon', 'lat', 'height', 'foE', 'foF1', 'foF2', 'eldensity'])
+            hs, lats, lons, delta = ray.linspace(n)
+            header = ['lon', 'lat', 'height', 'el_density'] + ex_attr
+            writer.writerow(header)
             for i in range(len(lats)):
+                # create local nequick object
                 pos = Position(lats[i], lons[i])
                 NEQ, para = self.get_Nequick_local(pos)
-                out = [lons[i], lats[i], hs[i]]
-                out = out + [para.foE, para.foF1, para.foF2]
-                out.append( NEQ.electrondensity(hs[i]))
 
+                # write values
+                out = [lons[i], lats[i], hs[i]]
+                out.append( NEQ.electrondensity(hs[i]))
+                for attr in ex_attr:
+                    out.append(getattr(para,attr))
                 writer.writerow(out)
 
     def _segment2(self, n, ray):
+        """Segment a ray for Gauss quadrature by cartesian distance"""
+        # same result as _segment(...)
         xx, deltax = gaussquadrature2_segment(n, ray.ob_x, ray.sat_x)
         yy, deltay = gaussquadrature2_segment(n, ray.ob_y, ray.sat_y)
         zz, deltaz = gaussquadrature2_segment(n, ray.ob_z, ray.sat_z)
@@ -64,26 +55,36 @@ class NequickG_global:
         return hh, latlat, lonlon, delta
 
     def _segment(self, n, ray):
+        """Segment a ray for Gauss quadrature by perigee distance"""
+        # same result as _segment2(...)
         s1, s2 = ray.perigee_distancelimits()
         ss, delta = gaussquadrature2_segment(n, s1, s2)
         hs, lats, lons = ray.perigeedistance2coords(ss)
 
         return hs, lats, lons, delta
 
-    def sTEC(self, h1, lat1, lon1, h2, lat2, lon2, tolerance=None):
+    def sTEC(self, ray, tolerance=None):
+        """
+        slant TEC integration.
+        Doubles the number of intervals until change falls within tolerance
+        :param ray:
+        :param tolerance:
+        :return:
+        """
+        # implementation can be optimised further
+
         seg = self._segment
         if tolerance == None:
-            if h1 < 1000:
+            if ray.ob_h < 1000:
                 tolerance = 0.001
             else:
                 tolerance = 0.01
 
-        ray = Ray(h1, lat1, lon1, h2, lat2, lon2)
         if ray.p_radius < 0.1:
             print "calulcating vTEC instead"
-            pos = Position(lat1, lon1)
+            pos = Position(ray.ob_lat, ray.ob_lon)
             neq, para = self.get_Nequick_local(pos)
-            return neq.vTEC(h1, h2)
+            return neq.vTEC(ray.ob_h, ray.sat_h)
 
         n = 8
         hs, lats, lons, delta = seg(n, ray)
@@ -106,16 +107,22 @@ class NequickG_global:
             count += 1
 
         if count == 20:
-            print "Integration2 did not converge"
+            print "Warning: Integration2 did not converge"
 
 
         return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
-    def sTEC2(self, h1, lat1, lon1, h2, lat2, lon2):
-        ray = Ray(h1, lat1, lon1, h2, lat2, lon2)
+    def sTEC2(self, ray):
+        """
+        slant TEC integration with increased tolerance in topside
+        implemented as directed by Galileo reference document to save computation
+        not needed in this implementation because computational power is not scare
+        """
         ht, latt, lont = ray.height2coords(1000)
-        stec1 = self.sTEC(h1, lat1, lon1, ht, latt, lont, tolerance=0.001)
-        stec2 = self.sTEC(ht, latt, lont, h2, lat2, lon2, tolerance=0.01)
+        ray1 = Ray(ray.ob_h, ray.ob_lat, ray.ob_lon, ht, latt, lont)
+        ray2 = Ray(ht, latt, lont, ray.ob_h, ray.ob_lat, ray.ob_lon)
+        stec1 = self.sTEC(ray1, tolerance=0.001)
+        stec2 = self.sTEC(ray2, tolerance=0.01)
 
         return stec1 + stec2
 
@@ -149,6 +156,18 @@ class NequickG_global:
         return latlat, lonlon, vtec
 
     def map_parameters(self,attrs, lat1, lon1, lat2, lon2, resolution=40):
+        """
+        Two points (lat1,lon1) (lat2,lon2) defines a rectangle in geographical grid
+        attrs
+        :param attrs: list of Nequick parameter names [strings] to map
+        :param lat1:
+        :param lon1:
+        :param lat2:
+        :param lon2:
+        :param resolution:
+        :return: at least three 2D grids. one of longitude, one for latitude.
+        the rest are maps of paramenters
+        """
 
         lats = np.linspace(lat1, lat2, resolution)
         lons = np.linspace(lon1, lon2, resolution)
@@ -212,6 +231,15 @@ class Ray:
             return False
         else:
             return True
+
+    def arange(self, step):
+        xs = np.arange(self.ob_x, self.sat_x, step)
+        ys = np.arange(self.ob_y, self.sat_y, step)
+        zs = np.arange(self.ob_z, self.sat_z, step)
+
+        rs, lats, lons = cartesian2coord(xs, ys, zs)
+
+        return rs, lats, lons
 
     def linspace(self, n):
         xs = np.linspace(self.ob_x, self.sat_x, n)
