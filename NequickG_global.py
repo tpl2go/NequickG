@@ -22,13 +22,24 @@ class NequickG_global:
         Para = NequickG_parameters(position, self.broadcast, self.time)
         return NequickG(Para), Para
 
-    def slant_table(self, n, ray, path, ex_attr= None):
+    def slant_table(self, n, ray, path, ex_attr=None):
         """writes a table of electron density along slant ray. optional paramenters allowed.
         Function inspired by International Reference Ionosphere model's interface"""
+
+        # This is unpythonic and hence commented out
+        # but at least it advertises the attributes available
+
+        # allowed_attrs = set(['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
+        #      'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
+        #      ,'A1', 'A2', 'A3', 'k'])
+        # if not set(ex_attr).issubset(allowed_attrs):
+        #     raise ValueError('Invalid attribute present')
+
         with file(path, 'w') as f:
             writer = csv.writer(f, delimiter=',')
-            hs, lats, lons, delta = ray.linspace(n)
-            header = ['lon', 'lat', 'height', 'el_density'] + ex_attr
+            rs, lats, lons, delta = ray.linspace(n)
+            hs = ray.radius2height(rs)
+            header = ['height', 'lat', 'lon', 'el_density'] + ex_attr
             writer.writerow(header)
             for i in range(len(lats)):
                 # create local nequick object
@@ -36,13 +47,13 @@ class NequickG_global:
                 NEQ, para = self.get_Nequick_local(pos)
 
                 # write values
-                out = [lons[i], lats[i], hs[i]]
-                out.append( NEQ.electrondensity(hs[i]))
+                out = [hs[i], lats[i], lons[i]]
+                out.append(NEQ.electrondensity(hs[i]))
                 for attr in ex_attr:
-                    out.append(getattr(para,attr))
+                    out.append(getattr(para, attr))
                 writer.writerow(out)
 
-    def _segment2(self, n, ray):
+    def _gaussspace2(self, n, ray):
         """Segment a ray for Gauss quadrature by cartesian distance"""
         # same result as _segment(...)
         xx, deltax = gaussquadrature2_segment(n, ray.ob_x, ray.sat_x)
@@ -54,7 +65,7 @@ class NequickG_global:
 
         return hh, latlat, lonlon, delta
 
-    def _segment(self, n, ray):
+    def _gassspace(self, n, ray):
         """Segment a ray for Gauss quadrature by perigee distance"""
         # same result as _segment2(...)
         s1, s2 = ray.perigee_distancelimits()
@@ -62,6 +73,17 @@ class NequickG_global:
         hs, lats, lons = ray.perigeedistance2coords(ss)
 
         return hs, lats, lons, delta
+
+    def _integrate(self, hh, lats, lons, delta):
+        electrondensity = np.empty(len(hh))
+
+        for i in range(len(lats)):
+            pos = Position(lats[i], lons[i])
+            NEQ, para = self.get_Nequick_local(pos)
+            electrondensity[i] = NEQ.electrondensity(hh[i])
+        GN = delta / 2.0 * np.sum(electrondensity)
+
+        return GN
 
     def sTEC(self, ray, tolerance=None):
         """
@@ -73,7 +95,7 @@ class NequickG_global:
         """
         # implementation can be optimised further
 
-        seg = self._segment
+        seg = self._gassspace
         if tolerance == None:
             if ray.ob_h < 1000:
                 tolerance = 0.001
@@ -109,7 +131,6 @@ class NequickG_global:
         if count == 20:
             print "Warning: Integration2 did not converge"
 
-
         return (GN2 + (GN2 - GN1) / 15.0) * 1000
 
     def sTEC2(self, ray):
@@ -120,24 +141,11 @@ class NequickG_global:
         """
         ht, latt, lont = ray.height2coords(1000)
         ray1 = Ray(ray.ob_h, ray.ob_lat, ray.ob_lon, ht, latt, lont)
-        ray2 = Ray(ht, latt, lont, ray.ob_h, ray.ob_lat, ray.ob_lon)
+        ray2 = Ray(ht, latt, lont, ray.sat_h, ray.sat_lat, ray.sat_lon)
         stec1 = self.sTEC(ray1, tolerance=0.001)
         stec2 = self.sTEC(ray2, tolerance=0.01)
 
         return stec1 + stec2
-
-
-    def _integrate(self, hh, lats, lons, delta):
-        electrondensity = np.empty(len(hh))
-
-        for i in range(len(lats)):
-            pos = Position(lats[i], lons[i])
-            NEQ, para = self.get_Nequick_local(pos)
-            electrondensity[i] = NEQ.electrondensity(hh[i])
-        GN = delta / 2.0 * np.sum(electrondensity)
-        # print para.Azr, para.Azr_unclip
-
-        return GN
 
     def map_vTEC(self, lat1, lon1, lat2, lon2, resolution=40):
         lats = np.linspace(lat1, lat2, resolution)
@@ -155,7 +163,7 @@ class NequickG_global:
 
         return latlat, lonlon, vtec
 
-    def map_parameters(self,attrs, lat1, lon1, lat2, lon2, resolution=40):
+    def map_parameters(self, attrs, lat1, lon1, lat2, lon2, resolution=40):
         """
         Two points (lat1,lon1) (lat2,lon2) defines a rectangle in geographical grid
         attrs
@@ -187,7 +195,7 @@ class NequickG_global:
                         out[i, j] = getattr(para, attrs[k])
                     except AttributeError:
                         if attrs[k] == 'vTEC':
-                            out[i, j] = neq.vTEC(100,20000)
+                            out[i, j] = neq.vTEC(100, 20000)
                         else:
                             raise AttributeError
 
@@ -195,6 +203,7 @@ class NequickG_global:
 
 
 class Ray:
+    # TODO: make construction lazy
     def __init__(self, h1, lat1, lon1, h2, lat2, lon2):
         "By convention, point 1 is at a lower height"
         self.ob_h = h1
@@ -248,7 +257,9 @@ class Ray:
 
         rs, lats, lons = cartesian2coord(xs, ys, zs)
 
-        return rs, lats, lons
+        delta = np.sqrt((xs[1] - xs[0]) ** 2 + (ys[1] - ys[0]) ** 2 + (ys[1] - ys[0]) ** 2)
+
+        return rs, lats, lons, delta
 
     # Ray-perigee computation
     def perigee_radius(self):
@@ -360,13 +371,15 @@ class Ray:
 
         return hs, lats, lons
 
-    def height2coords(self,h):
+    def height2coords(self, h):
         h = np.array(h)
-        assert (np.all(h < self.sat_h))
-        assert (np.all(h > self.ob_h))
-        s = np.sqrt( (6371.2 + h)** 2 + self.p_radius**2 )
+        s = np.sqrt((6371.2 + h) ** 2 + self.p_radius ** 2)
 
         return self.perigeedistance2coords(s)
+
+    @staticmethod
+    def radius2height(r):
+        return r - 6371.2
 
 
 def gaussquadrature2_segment(n, x1, x2):
@@ -382,6 +395,7 @@ def gaussquadrature2_segment(n, x1, x2):
 
     return xx, deltax
 
+
 def coord2cartesian(r, lat, lon):
     """
 
@@ -396,6 +410,7 @@ def coord2cartesian(r, lat, lon):
     z = r * np.sin(lat * DR)
 
     return x, y, z
+
 
 def cartesian2coord(x, y, z):
     """
@@ -414,13 +429,16 @@ def cartesian2coord(x, y, z):
 
     return r, lat, lon
 
+
 def radius2height(r):
     return r - 6371.2
 
-def height2radius(h):
-        return h + 6371.2
 
-def segment2( n, ray):
+def height2radius(h):
+    return h + 6371.2
+
+
+def segment2(n, ray):
     xx, deltax = gaussquadrature2_segment(n, ray.ob_x, ray.sat_x)
     yy, deltay = gaussquadrature2_segment(n, ray.ob_y, ray.sat_y)
     zz, deltaz = gaussquadrature2_segment(n, ray.ob_z, ray.sat_z)
@@ -429,6 +447,7 @@ def segment2( n, ray):
     hh = radius2height(rr)
 
     return hh, latlat, lonlon, delta
+
 
 def segment(n, ray):
     s1, s2 = ray.perigee_distancelimits()
