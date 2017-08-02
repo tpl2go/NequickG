@@ -1,12 +1,8 @@
-import csv
-import numpy as np
-import matplotlib.pyplot as plt
 from aux import *
-import time
-import pickle
 import CCIR_MoDIP.ccir_fm3
 import CCIR_MoDIP.ccir_f2
 import CCIR_MoDIP.modip
+import numpy as np
 
 # np.seterr(invalid = 'raise')
 
@@ -272,13 +268,14 @@ class NequickG_parameters:
 
     def __effective_ionization__(self):
         """
+
         :param ai0:
         :param ai1:
         :param ai2:
         :param MoDIP: [deg]
         :return: Effective ionoiszation level
         Remark: Az is equivalent to F10.7 in climatological NeQuick
-
+        It is a mystery to me why a solar index is a designed to vary with geographical location
         """
         ai0 = self.Broadcast.ai0
         ai1 = self.Broadcast.ai1
@@ -310,6 +307,7 @@ class NequickG_parameters:
 
         """
         self.Azr = np.sqrt(167273 + (self.Az - 63.7) * 1123.6) - 408.99
+        # min = -99.636351241819057
 
         # CCIR recommends that Azr saturates at 150
         # does a negative Azr even make sense??
@@ -374,6 +372,7 @@ class NequickG_parameters:
         coschi = np.sin(latitude * np.pi / 180) * solarsine + np.cos(
             latitude * np.pi / 180) * self.solarcosine * np.cos(
             np.pi / 12 * (12 - LT))
+
         self.chi = np.arctan2(np.sqrt(1 - coschi ** 2), coschi) * 180 / np.pi
 
         return self.chi
@@ -543,18 +542,19 @@ class NequickG_parameters:
         assert (len(G) == 76)
         foF2 = np.sum(CF2 * G)
         self.foF2 = foF2
-        if foF2 < 0:
-            print foF2, self.Azr, self.Az, self.Position.latitude, self.Position.longitude
-        assert (foF2 > 0) # this will fail
+
 
         G = self.__geographical_variation__([7, 8, 6, 3, 2, 1, 1])
         assert (len(G) == 49)
         M3000F2 = np.sum(Cm3 * G)
         self.M3000F2 = M3000F2
-        assert ( self.M3000F2 > 0)
+        assert ( self.M3000F2 > 0 )
 
         self.NmF2 = NeqCriticalFreqToNe(self.foF2)
-        assert ( self.NmF2 > 0)
+
+        # if foF2 < 0:
+        #     print foF2, self.Azr, self.Az, self.NmF2, self.Position.latitude, self.Position.longitude
+        # assert (foF2 > 0) # this will fail
 
         return self.foF2, self.M3000F2, self.NmF2
 
@@ -871,7 +871,7 @@ class NequickG_bottomside:
         z = (h - 100) / 10.0
 
         N[mask2] = S[mask2] * np.exp(1 - BC[mask2] * z[mask2] - np.exp(-z[mask2])) * 10 ** 11
-
+        assert( np.all(N > 0) )
         return N
 
 

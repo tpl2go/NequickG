@@ -1,6 +1,11 @@
 # Nequick-G
 This is a python implementation of the Nequick-G ionospheric correction model described in European Space Agency's Galileo Ionospheric Model. Ionospheric disturbance flags are not implemented
 
+## Installation
+This module depends on numpy for computation, and matplotlib and Basemap for plotting.
+They can be installed using pip via:
+
+
 ## Main classes
 **NequickG_global:**
 
@@ -55,4 +60,5 @@ print neq.vTEC(100,1000)
 NequickG_global does its work by spawning many NequickG objects and collating their results. There might be room for optimisations in the future. 
 
 
-
+## Validation
+ESA's Galileo Ionospheric document comes attached with a validation data table. The data has been copied into three .dat files for convenience
