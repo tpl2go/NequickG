@@ -47,3 +47,6 @@ Example of approximate equality: `[40.2N 0.3W]` == `[40N 0E]`
 
 ## Usage
 Example usages of these classes are provided in the task folder.
+
+If you need any more information, have any suggestions or noticed any bugs,
+do open a new Issue on this repository or email me at tpl2go at gmail dot com
