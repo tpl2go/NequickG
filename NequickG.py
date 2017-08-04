@@ -419,8 +419,8 @@ class NequickG_parameters:
 
         # Introduce the latitudinal dependence
         ee = NeqClipExp(0.3 * latitude)
-        seasp = seas * (ee - 1) / (ee + 1)
-
+        self.seasp = seas * (ee - 1) / (ee + 1)
+        seasp = self.seasp
         self.foE = np.sqrt((1.112 - 0.019 * seasp) ** 2 * np.sqrt(Az) * np.cos(chi_eff * np.pi / 180) ** 0.6 + 0.49)
         self.NmE = NeqCriticalFreqToNe(self.foE)
 
@@ -572,15 +572,20 @@ class NequickG_parameters:
         # use NeqJoin for day-night transition
         # 1000.0 seems arbitrary
         # why is foE = 2 a threshold for day -night boundary?
+        # print '1.4 * foE', 1.4 * foE
+        # gradient factor of 1000 is so large neqjoin might as well be a step function
         foF1 = NeqJoin(1.4 * foE, 0, 1000.0, foE - 2)
+        # print 'foF1: ', foF1
         foF1 = NeqJoin(0, foF1, 1000.0, foE - foF1)
+        # print 'foF1: ', foF1
         foF1 = NeqJoin(foF1, 0.85 * foF1, 60.0, 0.85 * foF2 - foF1)
+        # print 'foF1: ', foF1
 
         if foF1 < 10 ** -6:
             foF1 = 0
 
         # F1 layer maximum density
-        if (foF1 <= 0) and (foE > 2):
+        if (foF1 <= 0) and (foE > 2): # how can foF1 be negative??
             NmF1 = NeqCriticalFreqToNe(foE + 0.5)
         else:
             NmF1 = NeqCriticalFreqToNe(foF1)
@@ -725,17 +730,21 @@ class NequickG_parameters:
             return self.A2, self.A3
         else:
             A3a = 4.0 * self.NmE
+            # print 'A3a: ', A3a
             for i in range(5):
                 A2a = 4.0 * (self.NmF1 -
                              epstein(self.A1, self.hmF2, self.B2bot, self.hmF1) -
                              epstein(A3a, self.hmE, self.BEtop, self.hmF1))
-
+                # print 'A2a: ', A2a
                 A2a = NeqJoin(A2a, 0.8 * self.NmF1, 1, A2a - 0.8 * self.NmF1)
+                # print 'A2a', A2a
                 A3a = 4.0 * (self.NmE -
                              epstein(A2a, self.hmF1, self.B1bot, self.hmE) -
                              epstein(self.A1, self.hmF2, self.B2bot, self.hmE))
+
             self.A2 = A2a
             self.A3 = NeqJoin(A3a, 0.05, 60.0, A3a - 0.005)
+            # print 'A3: ', self.A3
         return self.A2, self.A3
 
     def shape_parameter(self):
@@ -791,8 +800,8 @@ class NequickG_bottomside:
         self.B1bot = B1bot
         self.B2bot = B2bot
 
-        self.AmpF1 = A2
         self.AmpF2 = A1
+        self.AmpF1 = A2
         self.AmpE = A3
 
         assert (hmF2 > 0)
@@ -804,8 +813,8 @@ class NequickG_bottomside:
         assert (B1bot > 0)
         assert (B2bot > 0)
         assert (A1 >= 0)
-        assert (A2 >= 0)
-        # assert (A3 >= 0) # this will fail. Why?
+        # assert (A2 >= 0)
+        # assert (A3 >= 0) # this will fail. Why? Becuse E layer does not exist at night
 
     def electrondensity(self, h):
         assert not np.any(h > self.hmF2)
