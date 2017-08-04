@@ -1,5 +1,5 @@
 from NequickG import GalileoBroadcast, NEQTime
-from NequickG_global import NequickG_global
+from NequickG_global import NequickG_global, Ray
 import csv
 import matplotlib.pyplot as plt
 import numpy as np
@@ -47,7 +47,8 @@ def run(table_type):
 
                 time = NEQTime(mth, UT)
                 NEQ_global = NequickG_global(time, BX)
-                stec = NEQ_global.sTEC(h1, lat1, lon1, h2, lat2, lon2) / 10**16
+                ray = Ray(h1, lat1, lon1, h2, lat2, lon2)
+                stec = NEQ_global.sTEC(ray) / 10**16
 
                 sTECs_computed.append(stec)
                 sTECs_expected.append(row[8])
@@ -70,7 +71,7 @@ def get_computed(table_type):
     return sTECs_expected, sTECs_computed
 
 
-def compare(sTECs_expected, sTECs_computed):
+def compare(sTECs_expected, sTECs_computed, path):
     # Change List type to np.ndarray type
     sTECs_expected = np.array(sTECs_expected)
     sTECs_computed = np.array(sTECs_computed)
@@ -92,8 +93,18 @@ def compare(sTECs_expected, sTECs_computed):
     plt.xlabel('Expected sTEC')
     plt.ylabel('Residual')
     plt.grid()
+    plt.savefig(path)
     plt.show()
 
-# sTECs_expected, sTECs_computed = run('Medium')
-sTECs_expected, sTECs_computed = get_computed('Medium')
-compare(sTECs_expected, sTECs_computed)
+
+# med_sTECs_expected, med_sTECs_computed = run('Medium')
+# med_sTECs_expected, med_sTECs_computed = get_computed('Medium')
+# compare(med_sTECs_expected, med_sTECs_computed, 'Validation/Medium.png')
+
+low_sTECs_expected, low_sTECs_computed = run('Low')
+low_sTECs_expected, low_sTECs_computed = get_computed('Low')
+compare(low_sTECs_expected, low_sTECs_computed, 'Validation/Low.png')
+
+high_sTECs_expected, high_sTECs_computed = run('High')
+high_sTECs_expected, high_sTECs_computed = get_computed('High')
+compare(high_sTECs_expected, high_sTECs_computed, 'Validation/High.png')
