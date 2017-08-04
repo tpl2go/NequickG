@@ -95,6 +95,7 @@ class NequickG_global:
         """
         # implementation can be optimised further
 
+        # assert (ray.isvalid())
         seg = self._gassspace
         if tolerance == None:
             if ray.ob_h < 1000:
@@ -237,6 +238,9 @@ class Ray:
             r = self.ob_radius
 
         if r < 6371.2:
+            print r
+            print self.p_radius
+            print self.ob_radius
             return False
         else:
             return True
