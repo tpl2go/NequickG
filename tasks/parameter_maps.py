@@ -15,7 +15,7 @@ def plotparameters(TX, BX, path):
     # processing parameters to visualise
     attrs = ['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
              'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
-             ,'A1', 'A2', 'A3', 'k', 'vTEC']
+             ,'A1', 'A2', 'A3', 'k', 'vTEC', 'seasp']
 
 
     NEQ_global = NequickG_global(TX, BX)
@@ -38,7 +38,7 @@ def plotparameters(TX, BX, path):
         xx, yy = mapp(lonlon, latlat)
 
         # filled contour
-        cs = mapp.contourf(xx, yy, outs[i], linewidths=1.5)
+        cs = mapp.contourf(xx, yy, outs[i])
 
         plt.title(attrs[i])
         mapp.colorbar(cs)
@@ -46,12 +46,12 @@ def plotparameters(TX, BX, path):
         if not os.path.exists(path):
             os.makedirs(path)
 
-        plt.savefig(path + '/'+ attrs[i]+'.png')
+        plt.savefig(os.path.join(path,  attrs[i]+'.png'))
         plt.close()
 
 
 # plot parameters for Validation test scenarios
-solar = 'High' # or 'Medium' or 'Low'
+solar = 'Medium' # or 'Medium' or 'Low'
 
 if solar=='Low':
     BX = GalileoBroadcast(2.580271,0.127628236,0.0252748384) # Low solar activity
@@ -64,4 +64,4 @@ else:
 
 for time in [0, 4, 8, 12, 16, 20]:
     TX = NEQTime(4, time)
-    plotparameters(TX, BX, 'maps/' + solar + '/' + str(time))
+    plotparameters(TX, BX, os.path.join('maps', solar, str(time)))
