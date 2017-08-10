@@ -243,14 +243,11 @@ for mth in range(1, 13):
                 foF2map_low[j, i], M3000map_low[j, i] = ccir.compute('low')
                 foF2map_high[j, i], M3000map_high[j, i] = ccir.compute('high')
 
-        plotmap(lonlon, latlat, foF2map_high, 'foF2map: mth= ' + str(mth) + " UT=" + str(UT), \
-                'foF2/' + str(mth) + "/high" + '{:02d}'.format(UT) + '.png')
-
-        plotmap(lonlon, latlat, foF2map_low, 'foF2map: mth= ' + str(mth) + " UT=" + str(UT), \
-                'foF2/' + str(mth) + "/low" + '{:02d}'.format(UT) + '.png')
-
-        plotmap(lonlon, latlat, M3000map_high, 'M3000F2map: mth= ' + str(mth) + " UT=" + str(UT), \
-                'M3000F2/' + str(mth) + "/high" + '{:02d}'.format(UT) + '.png')
-
-        plotmap(lonlon, latlat, M3000map_low, 'M3000F2map: mth=' + str(mth) + " UT=" + str(UT), \
-                'M3000F2/' + str(mth) + "/low" + '{:02d}'.format(UT) + '.png')
+        path = os.path.join('foF2', str(mth), "high" + '{:02d}'.format(UT) + '.png')
+        plotmap(lonlon, latlat, foF2map_high, 'foF2map: mth= ' + str(mth) + " UT=" + str(UT),path)
+        path = os.path.join('foF2', str(mth), "low" + '{:02d}'.format(UT) + '.png')
+        plotmap(lonlon, latlat, foF2map_low, 'foF2map: mth= ' + str(mth) + " UT=" + str(UT), path)
+        path = os.path.join('M3000F2', str(mth), 'high' + '{:02d}'.format(UT) + '.png')
+        plotmap(lonlon, latlat, M3000map_high, 'M3000F2map: mth= ' + str(mth) + " UT=" + str(UT),path)
+        path = os.path.join('M3000F2', str(mth), 'low' + '{:02d}'.format(UT) + '.png')
+        plotmap(lonlon, latlat, M3000map_low, 'M3000F2map: mth=' + str(mth) + " UT=" + str(UT), path)
