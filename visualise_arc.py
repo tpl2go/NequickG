@@ -1,6 +1,6 @@
-from NequickG import GalileoBroadcast, NEQTime
-from NequickG_global import NequickG_global, Ray
+from NequickG_global import Ray
 import csv
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 from mpl_toolkits.basemap import Basemap
@@ -10,7 +10,7 @@ def run(table_type):
     Plot all trajectory of specified in validation table
     """
     print "Plotting trajectories in", table_type, "Solar Activity data table"
-    with open('./Validation/' + table_type + '_reference.dat') as infile:
+    with open(os.path.join('Validation', table_type + '_reference.dat')) as infile:
         reader = csv.reader(infile, delimiter = ' ')
         plt.figure()
         mapp = Basemap(projection='cyl',llcrnrlat= -90.,urcrnrlat= 90.,\
