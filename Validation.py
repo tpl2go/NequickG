@@ -1,6 +1,7 @@
 from NequickG import GalileoBroadcast, NEQTime
 from NequickG_global import NequickG_global, Ray
 import csv
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -27,8 +28,8 @@ def run(table_type):
     sTECs_expected = []
     sTECs_computed = []
 
-    with open('./Validation/' + table_type + '_reference.dat') as infile:
-        with file('./Validation/' + table_type + '_output.dat', 'w') as outfile:
+    with open(os.path.join('Validation', table_type + '_reference.dat')) as infile:
+        with file(os.path.join('Validation', table_type + '_output.dat'), 'w') as outfile:
             writer = csv.writer(outfile, delimiter = ' ')
             reader = csv.reader(infile, delimiter = ' ')
             for row in reader:
@@ -62,9 +63,9 @@ def run(table_type):
 
 def get_computed(table_type):
     try:
-        df = np.loadtxt('Validation/' + table_type + '_output.dat', delimiter=' ')
+        df = np.loadtxt(os.path.join('Validation', table_type + '_output.dat'), delimiter=' ')
     except IOError:
-        raise ValueError('Does .out file exist? table_type argument must be either "High", "Medium" or "Low"')
+        raise ValueError('Does _output file exist? table_type argument must be either "High", "Medium" or "Low"')
 
     sTECs_expected, sTECs_computed = df[:,8], df[:,9]
 
@@ -99,12 +100,12 @@ def compare(sTECs_expected, sTECs_computed, path):
 
 # med_sTECs_expected, med_sTECs_computed = run('Medium')
 # med_sTECs_expected, med_sTECs_computed = get_computed('Medium')
-# compare(med_sTECs_expected, med_sTECs_computed, 'Validation/Medium.png')
+# compare(med_sTECs_expected, med_sTECs_computed, os.path.join('Validation','Medium.png'))
 
 low_sTECs_expected, low_sTECs_computed = run('Low')
 low_sTECs_expected, low_sTECs_computed = get_computed('Low')
-compare(low_sTECs_expected, low_sTECs_computed, 'Validation/Low.png')
-
-high_sTECs_expected, high_sTECs_computed = run('High')
-high_sTECs_expected, high_sTECs_computed = get_computed('High')
-compare(high_sTECs_expected, high_sTECs_computed, 'Validation/High.png')
+compare(low_sTECs_expected, low_sTECs_computed, os.path.join('Validation','Low.png'))
+#
+# high_sTECs_expected, high_sTECs_computed = run('High')
+# high_sTECs_expected, high_sTECs_computed = get_computed('High')
+# compare(high_sTECs_expected, high_sTECs_computed, os.path.join('Validation','High.png'))
