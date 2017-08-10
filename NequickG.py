@@ -93,7 +93,7 @@ class NequickG:
 
         GN1 = self.__single_quad(h1, h2, n)
         n *= 2
-        GN2 = self.__single_quad(h1, h2, n)  # there is repeated work here. can be optimized
+        GN2 = self.__single_quad(h1, h2, n)  # TODO: there is repeated work here. can be optimized
 
         count = 1
         while (abs(GN2 - GN1) > tolerance * abs(GN1)) and count < 20:
@@ -110,7 +110,7 @@ class NequickG:
 
     def vTEC_ratio(self):
         bot = self.vTEC(0, self.hmF2)
-        top = self.vTEC(self.hmF2, 100000)
+        top = self.vTEC(self.hmF2, 20000)
 
         return top / bot
 
@@ -200,13 +200,29 @@ class NequickG_parameters:
         latitude = self.Position.latitude
         longitude = self.Position.longitude
 
-        sq , lon_excess, lat_excess= self.Square(latitude, longitude)
-        mu2 = self.interpolate2d(sq, lon_excess, lat_excess)
+        sq , lon_excess, lat_excess= self.__square(latitude, longitude)
+        mu2 = self.__interpolate2d(sq, lon_excess, lat_excess)
         self.modip = mu2
 
         return self.modip
 
-    def Square(self, latitude, longitude):
+    def __square(self, latitude, longitude):
+        """
+        extract a 4x4 array of "nearby" modip values from the standard Modip table
+        :param latitude:
+        :param longitude:
+        :return:
+        --x--x--x--x--
+        --------------
+        --------------
+        --x--x--x--x--
+        ------*-------
+        --------------
+        --x--x--x--x--
+        --------------
+        --------------
+        --x--x--x--x--
+        """
         # what if longitude is [0,360]
         # what if longitude is [-180, 180]
         num_division = 36
@@ -234,13 +250,20 @@ class NequickG_parameters:
         square =stModip[lat_start+1:lat_start+5,lon_start+2:lon_start+6]
         return square, lon_excess, lat_excess
 
-    def interpolate2d(self, Z, x, y):
+    def __interpolate2d(self, Z, x, y):
+        """
+
+        :param Z: 4x4 2D array of modip values
+        :param x: normalised longitude displacement [0<x<1]
+        :param y: normalised latitude displacement [0<y<1]
+        :return: lagrange 3-order interpolated modip
+        """
         assert (np.shape(Z) == (4,4))
 
         deltax = 2 * x - 1
         deltay = 2 * y - 1
-        # Interpolate horizontally first
 
+        # Interpolate horizontally first
         G1 = Z[2,:] + Z[1,:]
         G2 = Z[2,:] - Z[1,:]
         G3 = Z[3,:] + Z[0,:]
