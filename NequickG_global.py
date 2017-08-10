@@ -26,14 +26,13 @@ class NequickG_global:
         """writes a table of electron density along slant ray. optional paramenters allowed.
         Function inspired by International Reference Ionosphere model's interface"""
 
-        # This is unpythonic and hence commented out
+        # This is unpythonic
         # but at least it advertises the attributes available
-
-        # allowed_attrs = set(['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
-        #      'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
-        #      ,'A1', 'A2', 'A3', 'k'])
-        # if not set(ex_attr).issubset(allowed_attrs):
-        #     raise ValueError('Invalid attribute present')
+        allowed_attrs = set(['foF1', 'foF2', 'foE', 'M3000F2', 'NmF2', 'NmF1', 'NmE', 'hmE', 'hmF1', 'hmF2', 'modip',
+             'Az','Azr', 'solarsine', 'solarcosine', 'chi', 'chi_eff', 'H0', 'B1bot', 'B1top', 'B2bot', 'BEtop', 'BEbot'
+             ,'A1', 'A2', 'A3', 'k', 'seasp'])
+        if not set(ex_attr).issubset(allowed_attrs):
+            raise ValueError('Invalid attribute present')
 
         with file(path, 'w') as f:
             writer = csv.writer(f, delimiter=',')
@@ -55,7 +54,7 @@ class NequickG_global:
 
     def _gaussspace2(self, n, ray):
         """Segment a ray for Gauss quadrature by cartesian distance"""
-        # same result as _segment(...)
+        # same result as _gaussspace(...)
         xx, deltax = gaussquadrature2_segment(n, ray.ob_x, ray.sat_x)
         yy, deltay = gaussquadrature2_segment(n, ray.ob_y, ray.sat_y)
         zz, deltaz = gaussquadrature2_segment(n, ray.ob_z, ray.sat_z)
@@ -67,7 +66,7 @@ class NequickG_global:
 
     def _gassspace(self, n, ray):
         """Segment a ray for Gauss quadrature by perigee distance"""
-        # same result as _segment2(...)
+        # same result as _gaussspace2(...)
         s1, s2 = ray.perigee_distancelimits()
         ss, delta = gaussquadrature2_segment(n, s1, s2)
         hs, lats, lons = ray.perigeedistance2coords(ss)
