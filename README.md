@@ -50,3 +50,7 @@ Example usages of these classes are provided in the task folder.
 
 If you need any more information, have any suggestions or noticed any bugs,
 do open a new Issue on this repository or email me at tpl2go at gmail dot com
+
+## Known issues
+For low solar activities, like that listed in the validation table. F1 critical frequency
+can become negative. This is unphysical and likely to mean that there is a bug in the implementation.
