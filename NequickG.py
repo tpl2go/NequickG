@@ -138,8 +138,6 @@ class NequickG_parameters:
         self.Position = pos  # Nequick position object
         self.Broadcast = broadcast  # Nequick broadcast object
         self.Time = time  # Nequick time object
-        # self.stmodip_path = './CCIR_MoDIP/modipNeQG_wrapped.txt'
-        # self.CCIR_path = './CCIR_MoDIP/ccir'
         self.compute_parameters()
 
     def compute_parameters(self):
@@ -475,7 +473,9 @@ class NequickG_parameters:
 
     def __interpolate_AZR__(self):
         """
-
+        AZR is a type of solar index
+        CCIR provides "spherical harmonic" coefficients of foF2 and M3000F2 at high and low AZR
+        Linearly interpolate the coefficients based on current AZR
         :param F2:
         :param Fm3:
         :param Azr:
@@ -530,6 +530,12 @@ class NequickG_parameters:
         return self.CF2, self.Cm3
 
     def __geographical_variation__(self, Q):
+        """
+
+        :param Q: array of length of modip expansion
+        :return:
+        Refer to page 18 of "Advances in Ionospheric Mapping by Numerical Methods (1966)"
+        """
         modip = self.modip
         latitude = self.Position.latitude
         longitude = self.Position.longitude
@@ -592,11 +598,11 @@ class NequickG_parameters:
         foF2 = self.foF2
 
         # In the day, foF1 = 1.4foE. In the night time, foF1 = 0
-        # use NeqJoin for day-night transition
-        # 1000.0 seems arbitrary
+        # use NeqJoin for a smooth day-night transition
+        # gradient factor of 1000 is arbitrary and large so that neqjoin can approx a step function
         # why is foE = 2 a threshold for day -night boundary?
+
         # print '1.4 * foE', 1.4 * foE
-        # gradient factor of 1000 is so large neqjoin might as well be a step function
         foF1 = NeqJoin(1.4 * foE, 0, 1000.0, foE - 2)
         # print 'foF1: ', foF1
         foF1 = NeqJoin(0, foF1, 1000.0, foE - foF1)
