@@ -21,7 +21,7 @@ for mth in range(1, 13):
         F2list = F2.tolist()
         Fm3list = Fm3.tolist()
 
-        with open('F2.py', 'a') as F2out:
+        with open('ccir_f2.py', 'a') as F2out:
             F2out.writelines('CCIR' + str(10 + mth) + '_F2 = [\n')
             for matrix in F2list:
                 F2out.writelines('[\n')
@@ -29,7 +29,7 @@ for mth in range(1, 13):
                 F2out.writelines('],\n')
             F2out.writelines(']\n\n')
 
-        with open('Fm3.py', 'a') as Fm3out:
+        with open('ccir_fm3.py', 'a') as Fm3out:
             Fm3out.writelines('CCIR' + str(10 + mth) + '_Fm3 = [\n')
             for matrix in Fm3list:
                 Fm3out.writelines('[\n')
