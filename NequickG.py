@@ -358,10 +358,10 @@ class NequickG_parameters:
         # Compute day of year at the middle of the month
         dy = 30.5 * month - 15
         # Compute time [days]:
-        t = dy + (18 - universal_time) / 24
+        t = dy + (18 - universal_time) / 24.0
         # Compute the argument
         a_m = (0.9856 * t - 3.289) * (np.pi / 180)  # radians
-        a_l = a_m + (1.916 * np.sin(a_m) + 0.020 * np.cos(2 * a_m) + 282.634) * (np.pi / 180)  # radians
+        a_l = a_m + (1.916 * np.sin(a_m) + 0.020 * np.sin(2 * a_m) + 282.634) * (np.pi / 180)  # radians
 
         # Compute sine and cosine of solar declination
         Sine = 0.39782 * np.sin(a_l)
